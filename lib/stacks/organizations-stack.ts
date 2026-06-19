@@ -1,6 +1,8 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import * as organizations from 'aws-cdk-lib/aws-organizations';
+import * as cr from 'aws-cdk-lib/custom-resources';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -13,6 +15,7 @@ export class OrganizationsStack extends cdk.Stack {
     const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
     const rootId = config.organization.rootId;
     const prodAccountId = config.accounts.prod;
+    const auditAccountId = config.accounts.audit;
 
     // 2. OU (Organizational Unit) の作成
     // Core OU
@@ -85,6 +88,29 @@ export class OrganizationsStack extends cdk.Stack {
       type: 'TAG_POLICY',
       content: enforceMandatoryTagsContent,
       targetIds: [workloadsOu.ref],
+    });
+
+    // 6. GuardDuty 組織委任管理者 (Delegated Administrator) の指定
+    // 管理アカウントにおいて、Audit アカウント（監査・セキュリティ）へ GuardDuty の管理権限を委任します。
+    new cr.AwsCustomResource(this, 'EnableGuardDutyDelegatedAdmin', {
+      onUpdate: {
+        service: 'GuardDuty',
+        action: 'enableOrganizationAdminAccount',
+        parameters: {
+          AdminAccountId: auditAccountId,
+        },
+        physicalResourceId: cr.PhysicalResourceId.of('GuardDutyDelegatedAdmin'),
+      },
+      policy: cr.AwsCustomResourcePolicy.fromStatements([
+        new iam.PolicyStatement({
+          actions: [
+            'guardduty:EnableOrganizationAdminAccount',
+            'organizations:EnableAWSServiceAccess',
+            'organizations:RegisterDelegatedAdministrator',
+          ],
+          resources: ['*'],
+        }),
+      ]),
     });
 
     // Outputs

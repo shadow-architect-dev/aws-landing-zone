@@ -5,6 +5,7 @@ import { OrganizationsStack } from '../lib/stacks/organizations-stack';
 import { IdentityStack } from '../lib/stacks/identity-stack';
 import { SharedServicesStack } from '../lib/stacks/shared-services-stack';
 import { LogArchiveStack } from '../lib/stacks/log-archive-stack';
+import { SecurityAuditStack } from '../lib/stacks/security-audit-stack';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -21,6 +22,11 @@ const managementEnv = {
 
 const logArchiveEnv = {
   account: config.accounts.logArchive || '222222222222',
+  region: 'ap-northeast-1',
+};
+
+const auditEnv = {
+  account: config.accounts.audit || '333333333333',
   region: 'ap-northeast-1',
 };
 
@@ -46,4 +52,10 @@ new SharedServicesStack(app, 'LandingZoneSharedServicesStack', {
 new LogArchiveStack(app, 'LandingZoneLogArchiveStack', {
   env: logArchiveEnv,
   description: 'AWS Log Archive infrastructure including S3 storage and Kinesis Firehose.',
+});
+
+// 5. AWS Security Audit Stack (Audit / Security アカウントにデプロイ)
+new SecurityAuditStack(app, 'LandingZoneSecurityAuditStack', {
+  env: auditEnv,
+  description: 'AWS Config Aggregator and GuardDuty central security configurations.',
 });
