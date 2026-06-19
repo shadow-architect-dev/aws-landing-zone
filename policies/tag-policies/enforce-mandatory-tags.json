@@ -1,0 +1,37 @@
+{
+  "tags": {
+    "Environment": {
+      "tag_key": {
+        "@@assign": "Environment"
+      },
+      "tag_value": {
+        "@@assign": [
+          "dev",
+          "stg",
+          "prod"
+        ]
+      },
+      "enforced_for": {
+        "@@assign": [
+          "ec2:instance",
+          "s3:bucket",
+          "rds:db",
+          "rds:cluster"
+        ]
+      }
+    },
+    "Project": {
+      "tag_key": {
+        "@@assign": "Project"
+      },
+      "enforced_for": {
+        "@@assign": [
+          "ec2:instance",
+          "s3:bucket",
+          "rds:db",
+          "rds:cluster"
+        ]
+      }
+    }
+  }
+}

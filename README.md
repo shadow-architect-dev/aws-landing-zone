@@ -59,11 +59,48 @@ sequenceDiagram
 
 ---
 
+## 🔑 ユーザー側で必要なアクション (Setup & Configuration)
+
+本マルチアカウント環境のテンプレートを実際に AWS 上に展開し運用するには、以下の設定と手動アクションが必要です。
+
+### 1. 接続先 AWS 情報の設定
+[config/landing-zone-config.json](file:///c:/Git/aws-landing-zone/config/landing-zone-config.json) を開き、実際の AWS 組織（Organizations）の情報を設定してください。
+*   `rootId`: AWS Organizations Root の識別ID（例: `r-abcd`）
+*   `accounts`: 各 OU に作成・配置した各 AWS アカウントの 12桁の ID。
+
+### 2. AWS 認証情報のセットアップ
+管理（Management）アカウントに対する操作権限を持つ AWS CLI プロファイルを用意します。
+```powershell
+aws configure
+# もしくは環境変数の設定
+$env:AWS_PROFILE="my-management-profile"
+```
+
+### 3. CDK のブートストラップ (Bootstrap)
+管理アカウント、および各メンバーアカウントへ CDK のリソースデプロイ用バケット等を作成します。
+```powershell
+# 管理アカウントのブートストラップ (ap-northeast-1)
+npx cdk bootstrap aws://<Management_Account_ID>/ap-northeast-1
+```
+
+### 4. スタックのデプロイ
+ベースラインを AWS 組織上に展開します。
+```powershell
+# 全スタックのデプロイ
+npx cdk deploy --all
+```
+
+### 5. 個別ワークロード側へのパラメータ同期 (shared-outputs.md)
+デプロイ完了後、作成された OIDC 信頼ロールの ARN や アカウントID 等の出力値を、個別ワークロードリポジトリ (`learning-ts-concepts`) の [docs/governance/shared-outputs.md](file:///c:/Git/learning-ts-concepts/docs/governance/shared-outputs.md) に書き込み、コミットしてプッシュしてください。これにより、ワークロード側の CI/CD が自動デプロイ可能になります。
+
+---
+
 ## 🚀 開発・運用の進め方
 
 本リポジトリに変更を加える際は、以下のステップを実行します。
 
 1. **ベースラインの合成・検証**:
-   - `cdk synth` または `terraform plan` を実行して、ガードレールとポリシーの構成を確認します。
+   - `npm run build` を実行して TypeScript のコンパイルエラーが無いことを確認します。
+   - `npx cdk synth` を実行して、出力される CloudFormation 定義（SCP、タグポリシーなど）を検証します。
 2. **アカウント作成・変更**:
-   - アカウントの払い出しや OIDC デプロイ用ロールの追加が完了したら、連携用の `shared-outputs.md` に対して最新の接続パラメータを書き出してマージします。
+   - アカウントの払い出しやデプロイ用ロールの追加が完了したら、連携用の `shared-outputs.md` に対して最新の接続パラメータを書き出してマージします。

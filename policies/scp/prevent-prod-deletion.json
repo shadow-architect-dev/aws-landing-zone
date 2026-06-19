@@ -1,0 +1,17 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "PreventCriticalResourceDeletion",
+      "Effect": "Deny",
+      "Action": [
+        "s3:DeleteBucket",
+        "s3:PutBucketVersioning",
+        "rds:DeleteDBInstance",
+        "rds:DeleteDBCluster",
+        "dynamodb:DeleteTable"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

@@ -65,3 +65,8 @@ Thumbs.db
 .terraform.lock.hcl
 .gen/
 cdktf.out/
+
+# Compiled JavaScript
+*.js
+!jest.config.js
+*.d.ts
