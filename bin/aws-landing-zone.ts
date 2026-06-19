@@ -4,11 +4,23 @@ import * as cdk from 'aws-cdk-lib';
 import { OrganizationsStack } from '../lib/stacks/organizations-stack';
 import { IdentityStack } from '../lib/stacks/identity-stack';
 import { SharedServicesStack } from '../lib/stacks/shared-services-stack';
+import { LogArchiveStack } from '../lib/stacks/log-archive-stack';
+import * as fs from 'fs';
+import * as path from 'path';
 
 const app = new cdk.App();
 
+// 設定ファイルの読み込み
+const configPath = path.join(__dirname, '../config/landing-zone-config.json');
+const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+
 const managementEnv = {
-  account: process.env.CDK_DEFAULT_ACCOUNT || '111122223333', // Placeholder / Default
+  account: process.env.CDK_DEFAULT_ACCOUNT || config.organization.management || '111122223333',
+  region: 'ap-northeast-1',
+};
+
+const logArchiveEnv = {
+  account: config.accounts.logArchive || '222222222222',
   region: 'ap-northeast-1',
 };
 
@@ -28,4 +40,10 @@ new IdentityStack(app, 'LandingZoneIdentityStack', {
 new SharedServicesStack(app, 'LandingZoneSharedServicesStack', {
   env: managementEnv,
   description: 'Shared services baseline configurations, including CI/CD OIDC roles.',
+});
+
+// 4. AWS Log Archive Stack (Log Archive アカウントにデプロイ)
+new LogArchiveStack(app, 'LandingZoneLogArchiveStack', {
+  env: logArchiveEnv,
+  description: 'AWS Log Archive infrastructure including S3 storage and Kinesis Firehose.',
 });
