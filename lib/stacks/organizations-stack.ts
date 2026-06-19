@@ -4,7 +4,9 @@ import * as organizations from 'aws-cdk-lib/aws-organizations';
 import * as cr from 'aws-cdk-lib/custom-resources';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as kms from 'aws-cdk-lib/aws-kms';
 import * as cloudtrail from 'aws-cdk-lib/aws-cloudtrail';
+import * as budgets from 'aws-cdk-lib/aws-budgets';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -115,19 +117,88 @@ export class OrganizationsStack extends cdk.Stack {
       ]),
     });
 
-    // 7. 組織の証跡 (Organization Trail) の構築
-    // Log Archive アカウントの S3 バケットの参照
+    // 7. Security Hub 組織委任管理者 (Delegated Administrator) の指定 (AWS Custom Resource)
+    new cr.AwsCustomResource(this, 'EnableSecurityHubDelegatedAdmin', {
+      onUpdate: {
+        service: 'SecurityHub',
+        action: 'enableOrganizationAdminAccount',
+        parameters: {
+          AdminAccountId: auditAccountId,
+        },
+        physicalResourceId: cr.PhysicalResourceId.of('SecurityHubDelegatedAdmin'),
+      },
+      policy: cr.AwsCustomResourcePolicy.fromStatements([
+        new iam.PolicyStatement({
+          actions: [
+            'securityhub:EnableOrganizationAdminAccount',
+            'organizations:EnableAWSServiceAccess',
+            'organizations:RegisterDelegatedAdministrator',
+          ],
+          resources: ['*'],
+        }),
+      ]),
+    });
+
+    // 8. 組織の証跡 (Organization Trail) の構築
+    // Log Archive アカウントの S3 バケットおよび KMS キーの参照
     const logBucketArn = `arn:aws:s3:::aws-landing-zone-log-archive-${logArchiveAccountId}-ap-northeast-1`;
     const logBucket = s3.Bucket.fromBucketArn(this, 'LogArchiveBucketRef', logBucketArn);
 
-    // 組織全体の証跡 (Organization Trail) を作成し、Log Archive バケットに格納
+    const kmsKeyArn = `arn:aws:kms:ap-northeast-1:${logArchiveAccountId}:alias/cloudtrail-log-archive-key`;
+    const cloudtrailKmsKey = kms.Key.fromKeyArn(this, 'CloudTrailKmsKeyRef', kmsKeyArn);
+
+    // 組織全体の証跡 (Organization Trail) を作成し、KMS暗号化を有効化して Log Archive バケットに格納
     new cloudtrail.Trail(this, 'OrganizationTrail', {
       bucket: logBucket,
+      encryptionKey: cloudtrailKmsKey, // SSE-KMS 暗号化
       isOrganizationTrail: true,
       sendToCloudWatchLogs: false, // S3バケットへ直接転送
       enableFileValidation: true, // ログの改ざん検知機能を有効化
       includeGlobalServiceEvents: true,
       managementEvents: cloudtrail.ReadWriteType.ALL,
+    });
+
+    // 9. AWS Budgets による予算アラート設定 (財務財務ガバナンス)
+    new budgets.CfnBudget(this, 'OrganizationMonthlyBudget', {
+      budget: {
+        budgetName: 'OrganizationMonthlyBudget',
+        budgetType: 'COST',
+        timeUnit: 'MONTHLY',
+        budgetLimit: {
+          amount: 1000, // 組織全体の月額予算上限 (USD)
+          unit: 'USD',
+        },
+      },
+      notificationsWithSubscribers: [
+        {
+          notification: {
+            comparisonOperator: 'GREATER_THAN',
+            notificationType: 'ACTUAL',
+            threshold: 80, // 実コストが予算の80%を超えた場合
+            thresholdType: 'PERCENTAGE',
+          },
+          subscribers: [
+            {
+              address: 'billing-alert@example.com', // メールアラート宛先
+              subscriptionType: 'EMAIL',
+            },
+          ],
+        },
+        {
+          notification: {
+            comparisonOperator: 'GREATER_THAN',
+            notificationType: 'FORECASTED',
+            threshold: 100, // 予測コストが100%を超える場合
+            thresholdType: 'PERCENTAGE',
+          },
+          subscribers: [
+            {
+              address: 'billing-alert@example.com',
+              subscriptionType: 'EMAIL',
+            },
+          ],
+        },
+      ],
     });
 
     // Outputs

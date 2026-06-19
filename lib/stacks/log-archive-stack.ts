@@ -2,6 +2,7 @@ import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as iam from 'aws-cdk-lib/aws-iam';
+import * as kms from 'aws-cdk-lib/aws-kms';
 import * as kinesisfirehose from 'aws-cdk-lib/aws-kinesisfirehose';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -14,10 +15,38 @@ export class LogArchiveStack extends cdk.Stack {
     const configPath = path.join(__dirname, '../../config/landing-zone-config.json');
     const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 
-    // 2. ログ保管用 S3 バケットの構築
+    // 2. ログ暗号化用のカスタマー管理型 KMS キーの構築
+    const cloudtrailKey = new kms.Key(this, 'CloudTrailEncryptionKey', {
+      alias: 'alias/cloudtrail-log-archive-key',
+      description: 'KMS Key for encrypting AWS CloudTrail logs in S3',
+      enableKeyRotation: true,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+    });
+
+    // CloudTrail サービスによる鍵の使用を許可するポリシーを追加
+    cloudtrailKey.addToResourcePolicy(new iam.PolicyStatement({
+      sid: 'AllowCloudTrailEncrypt',
+      effect: iam.Effect.ALLOW,
+      principals: [new iam.ServicePrincipal('cloudtrail.amazonaws.com')],
+      actions: [
+        'kms:GenerateDataKey*',
+        'kms:DescribeKey',
+      ],
+      resources: ['*'],
+      conditions: {
+        StringLike: {
+          'kms:EncryptionContext:aws:cloudtrail:arn': [
+            `arn:aws:cloudtrail:*:${config.organization.management || '111122223333'}:trail/*`,
+          ],
+        },
+      },
+    }));
+
+    // 3. ログ保管用 S3 バケットの構築 (KMS暗号化を適用)
     const logBucket = new s3.Bucket(this, 'LogArchiveBucket', {
       bucketName: `aws-landing-zone-log-archive-${this.account}-${this.region}`,
-      encryption: s3.BucketEncryption.S3_MANAGED,
+      encryption: s3.BucketEncryption.KMS,
+      encryptionKey: cloudtrailKey, // SSE-KMS
       versioned: true,
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       removalPolicy: cdk.RemovalPolicy.RETAIN, // 削除保護 (Keep the bucket even if stack is deleted)
@@ -51,7 +80,7 @@ export class LogArchiveStack extends cdk.Stack {
       },
     }));
 
-    // 3. Kinesis Data Firehose が S3 に書き込むための IAM ロール
+    // 4. Kinesis Data Firehose が S3 に書き込むための IAM ロール
     const firehoseRole = new iam.Role(this, 'FirehoseToS3Role', {
       assumedBy: new iam.ServicePrincipal('firehose.amazonaws.com'),
       description: 'IAM Role for Kinesis Data Firehose to write logs to S3',
@@ -59,7 +88,10 @@ export class LogArchiveStack extends cdk.Stack {
 
     logBucket.grantReadWrite(firehoseRole);
 
-    // 4. Kinesis Data Firehose (配信ストリーム) の構築
+    // Kinesis Firehose にも KMS キーの使用許可を付与
+    cloudtrailKey.grantEncryptDecrypt(firehoseRole);
+
+    // 5. Kinesis Data Firehose (配信ストリーム) の構築
     const deliveryStream = new kinesisfirehose.CfnDeliveryStream(this, 'LogArchiveDeliveryStream', {
       deliveryStreamName: 'LogArchiveDeliveryStream',
       deliveryStreamType: 'DirectPut',
@@ -76,7 +108,7 @@ export class LogArchiveStack extends cdk.Stack {
       },
     });
 
-    // 5. クロスアカウント配信用の IAM ロール (Workloads アカウントの CloudWatch Logs 用)
+    // 6. クロスアカウント配信用の IAM ロール (Workloads アカウントの CloudWatch Logs 用)
     const crossAccountDeliveryRole = new iam.Role(this, 'CrossAccountLogsDeliveryRole', {
       roleName: 'CrossAccountLogsDeliveryRole',
       assumedBy: new iam.ServicePrincipal('logs.amazonaws.com', {
@@ -120,6 +152,12 @@ export class LogArchiveStack extends cdk.Stack {
       value: crossAccountDeliveryRole.roleArn,
       description: 'ARN of the Cross-Account Logs Delivery IAM Role',
       exportName: 'LogArchiveDeliveryRoleArn',
+    });
+
+    new cdk.CfnOutput(this, 'CloudTrailKmsKeyArn', {
+      value: cloudtrailKey.keyArn,
+      description: 'ARN of the CloudTrail KMS Key',
+      exportName: 'CloudTrailKmsKeyArn',
     });
   }
 }

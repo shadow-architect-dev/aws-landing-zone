@@ -3,6 +3,7 @@ import { Construct } from 'constructs';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as config from 'aws-cdk-lib/aws-config';
 import * as guardduty from 'aws-cdk-lib/aws-guardduty';
+import * as securityhub from 'aws-cdk-lib/aws-securityhub';
 import * as cr from 'aws-cdk-lib/custom-resources';
 
 export class SecurityAuditStack extends cdk.Stack {
@@ -58,6 +59,36 @@ export class SecurityAuditStack extends cdk.Stack {
         new iam.PolicyStatement({
           actions: [
             'guardduty:UpdateOrganizationConfiguration',
+          ],
+          resources: ['*'],
+        }),
+      ]),
+    });
+
+    // -------------------------------------------------------------------------
+    // 3. AWS Security Hub の有効化と組織自動有効化
+    // -------------------------------------------------------------------------
+
+    // Security Hub 検出器の作成 (有効化)
+    new securityhub.CfnHub(this, 'AuditAccountSecurityHub', {
+      enableDefaultStandards: true, // AWS 基礎セキュリティのベストプラクティス等の標準規格を有効化
+    });
+
+    // 組織内の新規アカウント追加時に自動で Security Hub を有効化する設定 (AWS Custom Resource)
+    // ※ 委任管理者（Delegated Administrator）として登録された後に有効に動作します。
+    new cr.AwsCustomResource(this, 'SecurityHubOrganizationConfig', {
+      onUpdate: {
+        service: 'SecurityHub',
+        action: 'updateOrganizationConfiguration',
+        parameters: {
+          AutoEnable: true,
+        },
+        physicalResourceId: cr.PhysicalResourceId.of('SecurityHubOrgConfig'),
+      },
+      policy: cr.AwsCustomResourcePolicy.fromStatements([
+        new iam.PolicyStatement({
+          actions: [
+            'securityhub:UpdateOrganizationConfiguration',
           ],
           resources: ['*'],
         }),
