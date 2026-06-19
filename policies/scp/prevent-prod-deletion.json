@@ -9,7 +9,9 @@
         "s3:PutBucketVersioning",
         "rds:DeleteDBInstance",
         "rds:DeleteDBCluster",
-        "dynamodb:DeleteTable"
+        "dynamodb:DeleteTable",
+        "elasticache:DeleteCacheCluster",
+        "elasticache:DeleteReplicationGroup"
       ],
       "Resource": "*"
     }

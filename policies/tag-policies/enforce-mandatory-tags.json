@@ -16,7 +16,8 @@
           "ec2:instance",
           "s3:bucket",
           "rds:db",
-          "rds:cluster"
+          "rds:cluster",
+          "elasticache:cluster"
         ]
       }
     },
@@ -29,7 +30,8 @@
           "ec2:instance",
           "s3:bucket",
           "rds:db",
-          "rds:cluster"
+          "rds:cluster",
+          "elasticache:cluster"
         ]
       }
     }
