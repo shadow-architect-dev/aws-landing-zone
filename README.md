@@ -26,15 +26,21 @@ graph TD
     WorkloadsOU --> Prod[Production Account]
 ```
 
-### 📂 管理リソースと構成予定ディレクトリ
+### 📂 管理リソース・ディレクトリ構成
 
-- `organizations/` - Organizations 組織構造・OU定義
-- `policies/` - 共通ガードレール（SCP: サービスコントロールポリシー）定義
-  - 許可リージョン制限（ap-northeast-1 以外でのリソース作成拒否）
-  - セキュリティ監査機能（GuardDuty/Security Hub/Config/CloudTrail）の無効化・削除防止
-  - 本番データの意図しない削除制限
-- `identity/` - AWS IAM Identity Center (SSO) の権限セット・グループ管理
-- `shared-services/` - 各環境共通で利用する CI/CD デプロイ用 IAM ロールの設定
+*   `organizations/` - Organizations 組織構造・OU定義書
+*   `policies/` - ガードレール（SCP）およびタグポリシー定義
+    *   `scp/`: 許可リージョン制限（東京のみ）、監査機能無効化防止、本番データ削除防止（S3バージョニング保護含む）の SCP 定義。
+    *   `tag-policies/`: `Environment`, `Project` タグの付与と値を強制するタグポリシー定義。
+*   `identity/` - AWS IAM Identity Center (SSO) グループ・権限セット設計書
+*   `shared-services/` - CI/CD デプロイ用 OIDC IAM ロール設計書
+*   `config/` - 組織の Root ID や各 AWS アカウント ID を管理する設定ファイル（[landing-zone-config.json](file:///c:/Git/aws-landing-zone/config/landing-zone-config.json)）
+*   `bin/` - CDK アプリケーションのエントリーポイント（[aws-landing-zone.ts](file:///c:/Git/aws-landing-zone/bin/aws-landing-zone.ts)）
+*   `lib/` - AWS リソースを定義する CDK スタック群
+    *   `stacks/organizations-stack.ts`: OU、SCP、タグポリシー、GuardDuty/Security Hub 委任、組織の証跡（Organization Trail）、および一括予算（AWS Budgets）。
+    *   `stacks/log-archive-stack.ts`: ログ保管用 S3 バケット、ログ暗号化用の KMS キー（SSE-KMS）、および Kinesis Data Firehose。
+    *   `stacks/security-audit-stack.ts`: Audit アカウント内の Config 組織アグリゲーター、GuardDuty / Security Hub 有効化および組織全体自動有効化設定。
+    *   `stacks/identity-stack.ts` / `shared-services-stack.ts`: SSO および共通 CI/CD ロール定義のテンプレートスタック。
 
 ---
 
