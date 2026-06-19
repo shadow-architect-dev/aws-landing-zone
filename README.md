@@ -63,12 +63,19 @@ sequenceDiagram
 
 本マルチアカウント環境のテンプレートを実際に AWS 上に展開し運用するには、以下の設定と手動アクションが必要です。
 
-### 1. 接続先 AWS 情報の設定
+### 1. 各 AWS アカウントのプロビジョニング (事前準備)
+CDK による統制ポリシーアタッチの対象となる各種 AWS アカウントを作成します。
+*   **AWS Control Tower を利用する場合 (推奨)**:
+    管理（Management）アカウントで Control Tower を有効化すると、初期セットアップで `Log Archive` アカウントおよび `Audit` アカウントが自動的に払い出されます。その後、Control Tower 内の「Account Factory」を使用して、開発（Dev）、検証（Stg）、本番（Prod）アカウントを個別に作成します。
+*   **AWS Organizations を直接利用する場合**:
+    管理アカウントのコンソールから「組織の作成」を行い、各アカウント（Log Archive, Audit, Shared Services, Dev, Stg, Prod）を手動で新規作成してください。
+
+### 2. 接続先 AWS 情報の設定
 [config/landing-zone-config.json](file:///c:/Git/aws-landing-zone/config/landing-zone-config.json) を開き、実際の AWS 組織（Organizations）の情報を設定してください。
 *   `rootId`: AWS Organizations Root の識別ID（例: `r-abcd`）
-*   `accounts`: 各 OU に作成・配置した各 AWS アカウントの 12桁の ID。
+*   `accounts`: 前ステップで払い出した各 AWS アカウントの 12桁のアカウントID。
 
-### 2. AWS 認証情報のセットアップ
+### 3. AWS 認証情報のセットアップ
 管理（Management）アカウントに対する操作権限を持つ AWS CLI プロファイルを用意します。
 ```powershell
 aws configure
@@ -76,21 +83,21 @@ aws configure
 $env:AWS_PROFILE="my-management-profile"
 ```
 
-### 3. CDK のブートストラップ (Bootstrap)
+### 4. CDK のブートストラップ (Bootstrap)
 管理アカウント、および各メンバーアカウントへ CDK のリソースデプロイ用バケット等を作成します。
 ```powershell
 # 管理アカウントのブートストラップ (ap-northeast-1)
 npx cdk bootstrap aws://<Management_Account_ID>/ap-northeast-1
 ```
 
-### 4. スタックのデプロイ
+### 5. スタックのデプロイ
 ベースラインを AWS 組織上に展開します。
 ```powershell
 # 全スタックのデプロイ
 npx cdk deploy --all
 ```
 
-### 5. 個別ワークロード側へのパラメータ同期 (shared-outputs.md)
+### 6. 個別ワークロード側へのパラメータ同期 (shared-outputs.md)
 デプロイ完了後、作成された OIDC 信頼ロールの ARN や アカウントID 等の出力値を、個別ワークロードリポジトリ (`learning-ts-concepts`) の [docs/governance/shared-outputs.md](file:///c:/Git/learning-ts-concepts/docs/governance/shared-outputs.md) に書き込み、コミットしてプッシュしてください。これにより、ワークロード側の CI/CD が自動デプロイ可能になります。
 
 ---
