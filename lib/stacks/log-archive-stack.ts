@@ -24,6 +24,33 @@ export class LogArchiveStack extends cdk.Stack {
       enforceSSL: true, // SSLのみの接続を強制
     });
 
+    // S3 バケットポリシーの追加 (CloudTrail からのクロスアカウントログ書き込みを許可)
+    // 1. ACLの確認許可
+    logBucket.addToResourcePolicy(new iam.PolicyStatement({
+      sid: 'AWSCloudTrailAclCheck',
+      effect: iam.Effect.ALLOW,
+      principals: [new iam.ServicePrincipal('cloudtrail.amazonaws.com')],
+      actions: ['s3:GetBucketAcl'],
+      resources: [logBucket.bucketArn],
+    }));
+
+    // 2. ログファイルの書き込み許可 (バケット所有者のフルコントロール権限指定を強制)
+    logBucket.addToResourcePolicy(new iam.PolicyStatement({
+      sid: 'AWSCloudTrailWrite',
+      effect: iam.Effect.ALLOW,
+      principals: [new iam.ServicePrincipal('cloudtrail.amazonaws.com')],
+      actions: ['s3:PutObject'],
+      resources: [
+        logBucket.arnForObjects('AWSLogs/*'),
+        logBucket.arnForObjects('workloads/AWSLogs/*'),
+      ],
+      conditions: {
+        StringEquals: {
+          's3:x-amz-acl': 'bucket-owner-full-control',
+        },
+      },
+    }));
+
     // 3. Kinesis Data Firehose が S3 に書き込むための IAM ロール
     const firehoseRole = new iam.Role(this, 'FirehoseToS3Role', {
       assumedBy: new iam.ServicePrincipal('firehose.amazonaws.com'),

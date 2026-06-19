@@ -3,6 +3,8 @@ import { Construct } from 'constructs';
 import * as organizations from 'aws-cdk-lib/aws-organizations';
 import * as cr from 'aws-cdk-lib/custom-resources';
 import * as iam from 'aws-cdk-lib/aws-iam';
+import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as cloudtrail from 'aws-cdk-lib/aws-cloudtrail';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -16,6 +18,7 @@ export class OrganizationsStack extends cdk.Stack {
     const rootId = config.organization.rootId;
     const prodAccountId = config.accounts.prod;
     const auditAccountId = config.accounts.audit;
+    const logArchiveAccountId = config.accounts.logArchive;
 
     // 2. OU (Organizational Unit) の作成
     // Core OU
@@ -91,7 +94,6 @@ export class OrganizationsStack extends cdk.Stack {
     });
 
     // 6. GuardDuty 組織委任管理者 (Delegated Administrator) の指定
-    // 管理アカウントにおいて、Audit アカウント（監査・セキュリティ）へ GuardDuty の管理権限を委任します。
     new cr.AwsCustomResource(this, 'EnableGuardDutyDelegatedAdmin', {
       onUpdate: {
         service: 'GuardDuty',
@@ -111,6 +113,21 @@ export class OrganizationsStack extends cdk.Stack {
           resources: ['*'],
         }),
       ]),
+    });
+
+    // 7. 組織の証跡 (Organization Trail) の構築
+    // Log Archive アカウントの S3 バケットの参照
+    const logBucketArn = `arn:aws:s3:::aws-landing-zone-log-archive-${logArchiveAccountId}-ap-northeast-1`;
+    const logBucket = s3.Bucket.fromBucketArn(this, 'LogArchiveBucketRef', logBucketArn);
+
+    // 組織全体の証跡 (Organization Trail) を作成し、Log Archive バケットに格納
+    new cloudtrail.Trail(this, 'OrganizationTrail', {
+      bucket: logBucket,
+      isOrganizationTrail: true,
+      sendToCloudWatchLogs: false, // S3バケットへ直接転送
+      enableFileValidation: true, // ログの改ざん検知機能を有効化
+      includeGlobalServiceEvents: true,
+      managementEvents: cloudtrail.ReadWriteType.ALL,
     });
 
     // Outputs
