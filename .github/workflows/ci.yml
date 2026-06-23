@@ -8,24 +8,37 @@ on:
 
 jobs:
   validate:
-    name: Build and Validate CDK
+    name: Validate Terraform
     runs-on: ubuntu-latest
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
       with:
-        node-version: '20'
-        cache: 'npm'
+        terraform_version: "1.5.7"
 
-    - name: Install dependencies
-      run: npm ci
+    # 1. 共通フォーマットチェック (すべて)
+    - name: Terraform Format Check
+      run: terraform fmt -check -recursive
+      working-directory: ./terraform
 
-    - name: Build TypeScript
-      run: npm run build
+    # 2. ブートストラップコードの検証
+    - name: Terraform Init (Bootstrap)
+      run: terraform init -backend=false
+      working-directory: ./terraform/bootstrap
 
-    - name: CDK Synthesize Check
-      run: npx cdk synth
+    - name: Terraform Validate (Bootstrap)
+      run: terraform validate
+      working-directory: ./terraform/bootstrap
+
+    # 3. メインランディングゾーンコードの検証
+    - name: Terraform Init (Main)
+      run: terraform init -backend=false
+      working-directory: ./terraform
+
+    - name: Terraform Validate (Main)
+      run: terraform validate
+      working-directory: ./terraform
