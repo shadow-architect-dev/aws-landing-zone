@@ -65,13 +65,16 @@ data "aws_iam_policy_document" "kms_policy_doc" {
     }
   }
 
-  # Allow Kinesis Firehose to use the key
+  # Allow Kinesis Firehose and Fluent Bit Role to use the key
   statement {
     sid    = "AllowFirehoseDecryptEncrypt"
     effect = "ALLOW"
     principals {
-      type        = "AWS"
-      identifiers = [aws_iam_role.firehose_s3.arn]
+      type = "AWS"
+      identifiers = [
+        aws_iam_role.firehose_s3.arn,
+        aws_iam_role.eks_fluent_bit_cross_account.arn
+      ]
     }
     actions = [
       "kms:Decrypt",
@@ -299,6 +302,62 @@ resource "aws_iam_role_policy" "cross_account_delivery_policy" {
 }
 
 # ------------------------------------------------------------------------------
+# 5. EKS Fluent Bit 直接送信用のクロスアカウント IAM ロール
+# ------------------------------------------------------------------------------
+
+resource "aws_iam_role" "eks_fluent_bit_cross_account" {
+  name = "eks-fluent-bit-cross-account-role"
+
+  # 送信元 (EKS Workloadアカウント) の Fluent Bit 用 IRSA ロールからの AssumeRole を信頼
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          AWS = [
+            # 各環境（Dev, Stg, Prod）の EKS アカウントの Fluent Bit ロールを信頼
+            "arn:aws:iam::${var.dev_account_id}:role/eks-cluster-dev-fluent-bit-irsa",
+            "arn:aws:iam::${var.stg_account_id}:role/eks-cluster-stg-fluent-bit-irsa",
+            "arn:aws:iam::${var.prod_account_id}:role/eks-cluster-prod-fluent-bit-irsa"
+          ]
+        }
+        Action = "sts:AssumeRole"
+      }
+    ]
+  })
+}
+
+# 既存の Kinesis Data Firehose (LogArchiveDeliveryStream) への書き込み権限をアタッチ
+resource "aws_iam_role_policy" "eks_fluent_bit_cross_account_policy" {
+  name = "eks-fluent-bit-cross-account-policy"
+  role = aws_iam_role.eks_fluent_bit_cross_account.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = [
+          "firehose:PutRecord",
+          "firehose:PutRecordBatch"
+        ]
+        Effect   = "Allow"
+        Resource = aws_kinesis_firehose_delivery_stream.log_archive.arn
+      },
+      # 暗号化されたストリームに書き込むためのKMSキー使用権限
+      {
+        Action = [
+          "kms:Decrypt",
+          "kms:GenerateDataKey*"
+        ]
+        Effect   = "Allow"
+        Resource = aws_kms_key.cloudtrail.arn
+      }
+    ]
+  })
+}
+
+# ------------------------------------------------------------------------------
 # Outputs
 # ------------------------------------------------------------------------------
 
@@ -320,4 +379,9 @@ output "firehose_arn" {
 
 output "delivery_role_arn" {
   value = aws_iam_role.cross_account_delivery.arn
+}
+
+output "eks_fluent_bit_delivery_role_arn" {
+  value       = aws_iam_role.eks_fluent_bit_cross_account.arn
+  description = "ARN of the cross-account IAM role for EKS Fluent Bit log delivery"
 }
