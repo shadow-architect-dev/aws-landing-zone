@@ -91,7 +91,7 @@ data "aws_iam_policy_document" "state_policy_doc" {
       type        = "*"
       identifiers = ["*"]
     }
-    actions   = ["s3:*"]
+    actions = ["s3:*"]
     resources = [
       aws_s3_bucket.state.arn,
       "${aws_s3_bucket.state.arn}/*"

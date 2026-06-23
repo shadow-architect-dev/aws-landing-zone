@@ -41,7 +41,7 @@ resource "aws_config_configuration_aggregator" "org" {
 # ------------------------------------------------------------------------------
 
 resource "aws_guardduty_detector" "audit" {
-  enable                        = true
+  enable                       = true
   finding_publishing_frequency = "FIFTEEN_MINUTES"
 }
 

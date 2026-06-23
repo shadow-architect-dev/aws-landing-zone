@@ -133,7 +133,7 @@ data "aws_iam_policy_document" "s3_policy_doc" {
       type        = "*"
       identifiers = ["*"]
     }
-    actions   = ["s3:*"]
+    actions = ["s3:*"]
     resources = [
       aws_s3_bucket.log_archive.arn,
       "${aws_s3_bucket.log_archive.arn}/*"
@@ -165,7 +165,7 @@ data "aws_iam_policy_document" "s3_policy_doc" {
       type        = "Service"
       identifiers = ["cloudtrail.amazonaws.com"]
     }
-    actions   = ["s3:PutObject"]
+    actions = ["s3:PutObject"]
     resources = [
       "${aws_s3_bucket.log_archive.arn}/AWSLogs/*",
       "${aws_s3_bucket.log_archive.arn}/workloads/AWSLogs/*"
@@ -239,14 +239,14 @@ resource "aws_kinesis_firehose_delivery_stream" "log_archive" {
   destination = "extended_s3"
 
   extended_s3_configuration {
-    role_arn   = aws_iam_role.firehose_s3.arn
-    bucket_arn = aws_s3_bucket.log_archive.arn
+    role_arn    = aws_iam_role.firehose_s3.arn
+    bucket_arn  = aws_s3_bucket.log_archive.arn
     kms_key_arn = aws_kms_key.cloudtrail.arn
 
-    buffering_size     = 5
-    buffering_interval = 300
-    compression_format = "GZIP"
-    prefix             = "workloads/"
+    buffering_size      = 5
+    buffering_interval  = 300
+    compression_format  = "GZIP"
+    prefix              = "workloads/"
     error_output_prefix = "errors/"
   }
 }
