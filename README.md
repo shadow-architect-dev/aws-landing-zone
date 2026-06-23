@@ -1,6 +1,6 @@
-# aws-landing-zone (AWS Multi-Account Governance Repository)
+# aws-landing-zone (AWS Multi-Account Governance Repository - Terraform Version)
 
-このリポジトリは、AWS Organizations および AWS Control Tower を用いて、エンタープライズ規模のマルチアカウント構造、ガードレール（SCP）、およびガバナンスをコードで管理するためのインフラベースラインテンプレートです。
+このリポジトリは、AWS Organizations および AWS Control Tower を用いて、エンタープライズ規模のマルチアカウント構造、ガードレール（SCP）、およびガバナンスを **Terraform (HCL)** で一元管理するためのインフラベースラインリポジトリです。
 
 個別ワークロードリポジトリである **[learning-ts-concepts](https://github.com/shadow-architect-dev/learning-ts-concepts)** と連携し、安全な3層Webアーキテクチャを実行するための「土台（プラットフォーム）」を構成します。
 
@@ -28,19 +28,22 @@ graph TD
 
 ### 📂 管理リソース・ディレクトリ構成
 
-*   `organizations/` - Organizations 組織構造・OU定義書
-*   `policies/` - ガードレール（SCP）およびタグポリシー定義
+*   `policies/` - 組織共通ガードレール（SCP）およびタグポリシー定義（JSON）
     *   `scp/`: 許可リージョン制限（東京のみ）、監査機能無効化防止、本番データ削除防止（S3バージョニング保護含む）の SCP 定義。
     *   `tag-policies/`: `Environment`, `Project` タグの付与と値を強制するタグポリシー定義。
-*   `identity/` - AWS IAM Identity Center (SSO) グループ・権限セット設計書
-*   `shared-services/` - CI/CD デプロイ用 OIDC IAM ロール設計書
-*   `config/` - 組織の Root ID や各 AWS アカウント ID を管理する設定ファイル（[landing-zone-config.json](file:///c:/Git/aws-landing-zone/config/landing-zone-config.json)）
-*   `bin/` - CDK アプリケーションのエントリーポイント（[aws-landing-zone.ts](file:///c:/Git/aws-landing-zone/bin/aws-landing-zone.ts)）
-*   `lib/` - AWS リソースを定義する CDK スタック群
-    *   `stacks/organizations-stack.ts`: OU、SCP、タグポリシー、GuardDuty/Security Hub 委任、組織の証跡（Organization Trail）、および一括予算（AWS Budgets）。
-    *   `stacks/log-archive-stack.ts`: ログ保管用 S3 バケット、ログ暗号化用の KMS キー（SSE-KMS）、および Kinesis Data Firehose。
-    *   `stacks/security-audit-stack.ts`: Audit アカウント内の Config 組織アグリゲーター、GuardDuty / Security Hub 有効化および組織全体自動有効化設定。
-    *   `stacks/identity-stack.ts` / `shared-services-stack.ts`: SSO および共通 CI/CD ロール定義のテンプレートスタック。
+*   `identity/` - Google Workspace (SAML & SCIM) 連携による AWS IAM Identity Center (SSO) 設計および運用ガイド
+    *   [README.md](file:///c:/Git/aws-landing-zone/identity/README.md): Google Workspace を唯一の IdP とする IAM Identity Center 権限割り当て設計
+    *   [google-workspace-setup.md](file:///c:/Git/aws-landing-zone/identity/google-workspace-setup.md): Google Workspace SAML & SCIM 連携セットアップ手順書
+    *   [break-glass-runbook.md](file:///c:/Git/aws-landing-zone/identity/break-glass-runbook.md): 緊急アクセス（Break-Glass）運用・監査ランブック
+*   `terraform/` - Terraform によるインフラ定義およびアカウント管理基盤
+    *   [accounts.yaml](file:///c:/Git/aws-landing-zone/terraform/accounts.yaml): 組織内の全アカウント構造を GitOps 管理するための定義ファイル。
+    *   [providers.tf](file:///c:/Git/aws-landing-zone/terraform/providers.tf): 複数アカウント間でのロール引き受け（Assume Role）によるプロバイダー定義。
+    *   [backend.tf](file:///c:/Git/aws-landing-zone/terraform/backend.tf): S3 バケットおよび DynamoDB を使用した状態ロック設定。
+    *   [main.tf](file:///c:/Git/aws-landing-zone/terraform/main.tf): 各モジュールの呼び出しとパラメータ結合。
+    *   [imports.tf](file:///c:/Git/aws-landing-zone/terraform/imports.tf): 既存の CDK でプロビジョニングされたリソースを再作成せずにインポートするための `import` ブロック群。
+    *   `modules/`: 各スタックを移行したモジュール群（`organizations`, `log_archive`, `security_audit`, `identity`, `shared_services`, `account_factory`）。
+*   `docs/` - 運用管理ドキュメント
+    *   [gitops-terraform-runbook.md](file:///c:/Git/aws-landing-zone/docs/gitops-terraform-runbook.md): CDK から Terraform への安全な移行手順、および新規アカウント追加・削除の GitOps 運用マニュアル。
 
 ---
 
@@ -67,19 +70,24 @@ sequenceDiagram
 
 ## 🔑 ユーザー側で必要なアクション (Setup & Configuration)
 
-本マルチアカウント環境のテンプレートを実際に AWS 上に展開し運用するには、以下の設定と手動アクションが必要です。
+本マルチアカウント環境のテンプレートを実際に AWS 上に展開し運用するには、以下の設定と手動アクションが必要です。詳細は [gitops-terraform-runbook.md](file:///c:/Git/aws-landing-zone/docs/gitops-terraform-runbook.md) をご確認ください。
 
-### 1. 各 AWS アカウントのプロビジョニング (事前準備)
-CDK による統制ポリシーアタッチの対象となる各種 AWS アカウントを作成します。
-*   **AWS Control Tower を利用する場合 (推奨)**:
-    管理（Management）アカウントで Control Tower を有効化すると、初期セットアップで `Log Archive` アカウントおよび `Audit` アカウントが自動的に払い出されます。その後、Control Tower 内の「Account Factory」を使用して、開発（Dev）、検証（Stg）、本番（Prod）アカウントを個別に作成します。
-*   **AWS Organizations を直接利用する場合**:
-    管理アカウントのコンソールから「組織の作成」を行い、各アカウント（Log Archive, Audit, Shared Services, Dev, Stg, Prod）を手動で新規作成してください。
+### 1. アカウント定義の宣言と払い出し (GitOps / Control Tower 連携)
+1. **アカウント情報の記述**:
+   - [terraform/accounts.yaml](file:///c:/Git/aws-landing-zone/terraform/accounts.yaml) に、作成したい AWS アカウント名や管理者メールアドレス、所属 OU を定義します。
+2. **アカウント払い出しのデプロイ**:
+   - 管理（Management）アカウントに対し、アカウント作成モジュールをデプロイします：
+     ```bash
+     terraform init
+     terraform apply -target=module.account_factory
+     ```
+   - これにより AWS Control Tower の Account Factory が呼び出され、安全に各アカウントが自動プロビジョニングされます（完了まで15〜30分程度）。
 
-### 2. 接続先 AWS 情報の設定
-[config/landing-zone-config.json](file:///c:/Git/aws-landing-zone/config/landing-zone-config.json) を開き、実際の AWS 組織（Organizations）の情報を設定してください。
-*   `rootId`: AWS Organizations Root の識別ID（例: `r-abcd`）
-*   `accounts`: 前ステップで払い出した各 AWS アカウントの 12桁のアカウントID。
+### 2. Google Workspace 連携とパラメータ取得 (SSO/SCIM 設定)
+1. **SAML / SCIM 連携設定**:
+   - [google-workspace-setup.md](file:///c:/Git/aws-landing-zone/identity/google-workspace-setup.md) の手順に従って、Google Workspace 側で SAML アプリの作成、ユーザーアクセス権の絞り込み、SCIM 同期を設定します。
+2. **パラメータの収集と設定**:
+   - [terraform/variables.tf](file:///c:/Git/aws-landing-zone/terraform/variables.tf) を開き、作成された AWS アカウント ID、SSO インスタンス ARN、SCIM 同期グループの Principal ID を更新します。
 
 ### 3. AWS 認証情報のセットアップ
 管理（Management）アカウントに対する操作権限を持つ AWS CLI プロファイルを用意します。
@@ -89,31 +97,11 @@ aws configure
 $env:AWS_PROFILE="my-management-profile"
 ```
 
-### 4. CDK のブートストラップ (Bootstrap)
-管理アカウント、および各メンバーアカウントへ CDK のリソースデプロイ用バケット等を作成します。
-```powershell
-# 管理アカウントのブートストラップ (ap-northeast-1)
-npx cdk bootstrap aws://<Management_Account_ID>/ap-northeast-1
+### 4. ベースラインの適用（デプロイ）
+アカウントの払い出しおよびパラメータの設定が完了したら、全リソースを適用します。
+```bash
+terraform apply
 ```
 
-### 5. スタックのデプロイ
-ベースラインを AWS 組織上に展開します。
-```powershell
-# 全スタックのデプロイ
-npx cdk deploy --all
-```
-
-### 6. 個別ワークロード側へのパラメータ同期 (shared-outputs.md)
+### 5. 個別ワークロード側へのパラメータ同期 (shared-outputs.md)
 デプロイ完了後、作成された OIDC 信頼ロールの ARN や アカウントID 等の出力値を、個別ワークロードリポジトリ (`learning-ts-concepts`) の [docs/governance/shared-outputs.md](file:///c:/Git/learning-ts-concepts/docs/governance/shared-outputs.md) に書き込み、コミットしてプッシュしてください。これにより、ワークロード側の CI/CD が自動デプロイ可能になります。
-
----
-
-## 🚀 開発・運用の進め方
-
-本リポジトリに変更を加える際は、以下のステップを実行します。
-
-1. **ベースラインの合成・検証**:
-   - `npm run build` を実行して TypeScript のコンパイルエラーが無いことを確認します。
-   - `npx cdk synth` を実行して、出力される CloudFormation 定義（SCP、タグポリシーなど）を検証します。
-2. **アカウント作成・変更**:
-   - アカウントの払い出しやデプロイ用ロールの追加が完了したら、連携用の `shared-outputs.md` に対して最新の接続パラメータを書き出してマージします。

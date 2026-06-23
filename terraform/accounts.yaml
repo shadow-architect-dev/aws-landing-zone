@@ -1,0 +1,41 @@
+# AWS Control Tower Account Factory / AFT Accounts Configuration
+#
+# このファイルは、本 Landing Zone で稼働する、および今後追加するすべての AWS アカウントの一覧です。
+# GitOps パイプラインまたは AFT がこのファイルを読み込み、自動プロビジョニングを実行します。
+
+accounts:
+  - account_name: "LogArchive"
+    account_email: "aws-root+logarchive@example.com"
+    organizational_unit: "Core"
+
+  - account_name: "Audit"
+    account_email: "aws-root+audit@example.com"
+    organizational_unit: "Core"
+
+  - account_name: "SharedServices"
+    account_email: "aws-root+sharedservices@example.com"
+    organizational_unit: "Core"
+
+  - account_name: "Dev"
+    account_email: "aws-root+dev@example.com"
+    organizational_unit: "Workloads"
+
+  - account_name: "Stg"
+    account_email: "aws-root+stg@example.com"
+    organizational_unit: "Workloads"
+
+  - account_name: "Prod"
+    account_email: "aws-root+prod@example.com"
+    organizational_unit: "Workloads"
+
+  - account_name: "eks-three-tier-dev"
+    account_email: "aws-root+eks-dev@example.com"
+    organizational_unit: "Workloads/Development"
+
+  - account_name: "eks-three-tier-stg"
+    account_email: "aws-root+eks-stg@example.com"
+    organizational_unit: "Workloads/Staging"
+
+  - account_name: "eks-three-tier-prod"
+    account_email: "aws-root+eks-prod@example.com"
+    organizational_unit: "Workloads/Production"
