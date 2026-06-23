@@ -23,16 +23,16 @@ jobs:
     # 1. 共通フォーマットチェック (すべて)
     - name: Terraform Format Check
       run: terraform fmt -check -recursive
-      working-directory: ./terraform
+      working-directory: .
 
     # 2. ブートストラップコードの検証
     - name: Terraform Init (Bootstrap)
       run: terraform init -backend=false
-      working-directory: ./terraform/bootstrap
+      working-directory: ./bootstrap
 
     - name: Terraform Validate (Bootstrap)
       run: terraform validate
-      working-directory: ./terraform/bootstrap
+      working-directory: ./bootstrap
 
     # 3. メインランディングゾーンコードの検証
     - name: Terraform Init (Main)

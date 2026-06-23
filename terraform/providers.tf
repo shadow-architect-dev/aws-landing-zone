@@ -6,6 +6,7 @@ terraform {
       version = "~> 5.0"
     }
   }
+  backend "s3" {}
 }
 
 # デフォルトのプロバイダー (管理アカウント向け)

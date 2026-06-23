@@ -66,6 +66,10 @@ Thumbs.db
 .gen/
 cdktf.out/
 
+# Bootstrap Temporary Files
+bootstrap/.terraform/
+bootstrap/*.tfstate*
+
 # Compiled JavaScript
 *.js
 !jest.config.js

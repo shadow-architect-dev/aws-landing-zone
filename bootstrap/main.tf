@@ -6,6 +6,18 @@
 # ステートロック用 DynamoDB テーブルを作成するための初期セットアップ（ブートストラップ）コードです。
 # 初期実行時はローカルバックエンドで作成し、完了後にリモートへ移行します。
 
+variable "region" {
+  type        = string
+  description = "AWS deployment region for backend resources"
+  default     = "ap-northeast-1"
+}
+
+variable "management_account_id" {
+  type        = string
+  description = "AWS Management Account ID"
+  default     = "111122223333"
+}
+
 terraform {
   required_version = ">= 1.5.0"
   required_providers {

@@ -37,8 +37,7 @@ graph TD
     *   [break-glass-runbook.md](file:///c:/Git/aws-landing-zone/identity/break-glass-runbook.md): 緊急アクセス（Break-Glass）運用・監査ランブック
 *   `terraform/` - Terraform によるインフラ定義およびアカウント管理基盤
     *   [accounts.yaml](file:///c:/Git/aws-landing-zone/terraform/accounts.yaml): 組織内の全アカウント構造を GitOps 管理するための定義ファイル。
-    *   [providers.tf](file:///c:/Git/aws-landing-zone/terraform/providers.tf): 複数アカウント間でのロール引き受け（Assume Role）によるプロバイダー定義。
-    *   [backend.tf](file:///c:/Git/aws-landing-zone/terraform/backend.tf): S3 バケットおよび DynamoDB を使用した状態ロック設定。
+    *   [providers.tf](file:///c:/Git/aws-landing-zone/terraform/providers.tf): 複数アカウント間でのロール引き受け（Assume Role）によるプロバイダー定義、およびリモートバックエンド設定。
     *   [main.tf](file:///c:/Git/aws-landing-zone/terraform/main.tf): 各モジュールの呼び出しとパラメータ結合。
     *   [imports.tf](file:///c:/Git/aws-landing-zone/terraform/imports.tf): 既存の CDK でプロビジョニングされたリソースを再作成せずにインポートするための `import` ブロック群。
     *   `modules/`: 各スタックを移行したモジュール群（`organizations`, `log_archive`, `security_audit`, `identity`, `shared_services`, `account_factory`）。
@@ -71,6 +70,42 @@ sequenceDiagram
 ## 🔑 ユーザー側で必要なアクション (Setup & Configuration)
 
 本マルチアカウント環境のテンプレートを実際に AWS 上に展開し運用するには、以下の設定と手動アクションが必要です。詳細は [gitops-terraform-runbook.md](file:///c:/Git/aws-landing-zone/docs/gitops-terraform-runbook.md) をご確認ください。
+
+### 0. 初期セットアップ: リモートバックエンド（S3/DynamoDB）の構築
+本プロジェクトでは、インフラのデプロイ競合（ステートロック）とデータ保護のため、S3 と DynamoDB によるリモートバックエンド構成を採用しています。新規に環境をデプロイする場合は、以下のブートストラップ手順を実行してください。
+
+#### ステップ 1: バックエンド用リソースの作成（ローカル実行）
+まず、ステート保存用の S3 バケットと、ロック管理用の DynamoDB テーブルをローカル管理で作成します。
+
+1. `bootstrap/` ディレクトリに移動します。
+   ```bash
+   cd bootstrap
+   ```
+2. プロビジョニングを実行します（この時点のステートはローカルで一時管理されます）。
+   ```bash
+   terraform init
+   terraform apply
+   ```
+   ※出力された `state_bucket_name` と `dynamodb_table_name` を控えておきます。
+
+#### ステップ 2: メインインフラへのリモートバックエンド適用（移行）
+作成したリソースをメインインフラのバックエンドとして適用し、ステートファイルを S3 へ移行します。
+
+1. ルートディレクトリに戻ります。
+   ```bash
+   cd ..
+   ```
+2. `terraform/providers.tf` 内の `backend "s3"` ブロックは空のまま、以下のコマンドを実行して初期化とマイグレーションを行います（実際のバケット名やテーブル名をパラメータとして渡します）。
+   ```bash
+   terraform init \
+     -backend-config="bucket=<ステップ1で控えたS3バケット名>" \
+     -backend-config="key=landingzone/terraform.tfstate" \
+     -backend-config="region=ap-northeast-1" \
+     -backend-config="dynamodb_table=landingzone-terraform-state-lock" \
+     -backend-config="encrypt=true"
+   ```
+3. ターミナルに「ローカルのステートをリモート S3 に移行しますか？ (Do you want to copy existing state to the new backend?)」とメッセージが表示されるので、 `yes` と入力します。
+4. 以上で、セットアップは完了です。以降は安全なリモートバックエンド管理の元で `terraform plan` / `apply` を実行できます。
 
 ### 1. アカウント定義の宣言と払い出し (GitOps / Control Tower 連携)
 1. **アカウント情報の記述**:
