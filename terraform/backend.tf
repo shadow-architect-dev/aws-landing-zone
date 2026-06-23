@@ -1,9 +1,9 @@
 terraform {
   backend "s3" {
-    bucket         = "aws-landing-zone-tfstate-111122223333-ap-northeast-1"
+    bucket         = "landingzone-terraform-state-111122223333"
     key            = "landing-zone/terraform.tfstate"
     region         = "ap-northeast-1"
-    dynamodb_table = "aws-landing-zone-tfstate-lock"
+    dynamodb_table = "landingzone-terraform-state-lock"
     encrypt        = true
   }
 }

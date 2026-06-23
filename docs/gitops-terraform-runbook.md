@@ -9,10 +9,31 @@
 移行作業中も本番環境のサービスは無停止であり、既存の AWS 組織（OU、アカウント）、S3 ログバケット、KMS 暗号化キーなどの実リソースはすべて維持されます。
 
 ### Step 1: Terraform バックエンドおよび OIDC の初期ブートストラップ
-1. **S3 バケット & DynamoDB テーブルの作成**:
-   - Terraform State を保管する S3 バケットおよび状態ロック用の DynamoDB テーブルを手動、または一時的にローカルバックエンドの Terraform で作成します。
-   - 作成後、[backend.tf](file:///c:/Git/aws-landing-zone/terraform/backend.tf) の `bucket` と `dynamodb_table` を実際のものに更新します。
-2. **OIDC ロールの確認**:
+
+本 Landing Zone では、状態管理を強固にするため、専用の `bootstrap` コードを使用して S3 バケットおよび DynamoDB テーブルを先にプロビジョニングします。
+
+1. **ブートストラップ用インフラのプロビジョニング (ローカル実行)**:
+   - ターミナルで `terraform/bootstrap` ディレクトリに移動します：
+     ```bash
+     cd terraform/bootstrap
+     ```
+   - 初期化と適用を実行し、ステートバケットと DynamoDB テーブルを作成します（初回のみローカルのステートとして作成されます）：
+     ```bash
+     terraform init
+     terraform apply
+     ```
+   - *注意*: 作成される S3 バケット（`landingzone-terraform-state-<管理アカウントID>`）には `prevent_destroy = true` が設定されており、誤って削除されることが防止されています。
+2. **メイン基盤側バックエンドの初期化とステート移行**:
+   - ルートの `terraform/` ディレクトリに戻ります：
+     ```bash
+     cd ..
+     ```
+   - ルートディレクトリで初期化を実行します。これにより、[backend.tf](file:///c:/Git/aws-landing-zone/terraform/backend.tf) の設定に基づき、ローカルのステートファイルを新しく作成したリモート S3 バケットへ自動アップロード（マイグレーション）するか確認されます：
+     ```bash
+     terraform init
+     ```
+   - 画面の確認プロンプトに対して `yes` と答えることで、リモートバックエンドへの移行が完了します。
+3. **OIDC ロールの確認**:
    - GitHub Actions 等の CI/CD ツールから OIDC 経由でデプロイするため、CDK 側で作成した `GitHubActionsWorkflowDeployRole` を確認します。移行後は Terraform がこのロールの管理を引き継ぎます。
 
 ### Step 2: 構成パラメータの設定
