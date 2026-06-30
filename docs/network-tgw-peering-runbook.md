@@ -51,8 +51,8 @@
 ### A. EKS 側 (Terraform / HCL) での実装例
 `learning-terraform-concepts` 等の Terraform コードベースで、TGW アタッチメントと VPC ルートを追加します。
 
-#### 1. TGW アタッチメントの定義
-VPC のプライベートサブネット群を指定し、共有された TGW へのアタッチメントを作成します。
+#### 1. TGW接続専用サブネット ＆ アタッチメントの定義
+VPCの既存のアプリ用サブネットとは別に、**TGW接続専用の極小サブネット (AZごとに /28 レンジ推奨)** を作成し、それを指定してアタッチします。これにより、ルートテーブルの分離と不要なIP消費の抑制が可能になります。
 
 ```hcl
 # 共有されている TGW リソースを参照 (Data Source)
@@ -60,11 +60,23 @@ data "aws_ec2_transit_gateway" "shared" {
   id = var.transit_gateway_id # プラットフォーム側から同期された TGW ID
 }
 
-# TGW VPC アタッチメントの作成
+# 1. TGW専用サブネットの作成 (AZごとに配置)
+resource "aws_subnet" "tgw" {
+  count             = length(var.azs)
+  vpc_id            = module.vpc.vpc_id
+  cidr_block        = cidrsubnet(var.vpc_cidr, 8, count.index + 100) # 例: 10.10.100.0/28 等
+  availability_zone = var.azs[count.index]
+
+  tags = {
+    Name = "${var.cluster_name}-tgw-subnet-${var.azs[count.index]}"
+  }
+}
+
+# 2. TGW VPC アタッチメントの作成 (TGW専用サブネットのIDを指定)
 resource "aws_ec2_transit_gateway_vpc_attachment" "eks_tgw" {
   transit_gateway_id = data.aws_ec2_transit_gateway.shared.id
   vpc_id             = module.vpc.vpc_id
-  subnet_ids         = module.vpc.private_subnets
+  subnet_ids         = aws_subnet.tgw[*].id
 
   # 自動承認を有効にしているため、アタッチメント作成後に即時疎通します
   transit_gateway_default_route_table_association = true
@@ -113,8 +125,8 @@ export class TgwAttachment extends Construct {
     const tgwAttachment = new ec2.CfnTransitGatewayAttachment(this, 'TgwVpcAttachment', {
       transitGatewayId: props.tgwId,
       vpcId: props.vpc.vpcId,
-      // アタッチメントを配置するプライベートサブネットを指定
-      subnetIds: props.vpc.selectSubnets({ subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS }).subnetIds,
+      // ベストプラクティス: VPC構築時に 'Tgw' 等の専用サブネットグループを極小レンジで別途作成しておき、それを指定します
+      subnetIds: props.vpc.selectSubnets({ subnetGroupName: 'Tgw' }).subnetIds,
       tags: [{
         key: 'Name',
         value: `${cdk.Stack.of(this).stackName}-tgw-attachment`,
@@ -146,8 +158,8 @@ privateSubnets.subnets.forEach((subnet, index) => {
 1.  **インフラ合成・テスト**:
     *   EKS側: `terraform plan` を実行し、`aws_ec2_transit_gateway_vpc_attachment` が正しく作成されることを検証。
     *   ECS/CDK側: `npm test` または `cdk synth` を実行し、CloudFormation テンプレートの合成エラーがないことを検証。
-2.  **AWS RAM の共有承認**:
-    *   Spoke 側のアカウントで、AWS RAM ➔ Shared with me ➔ Resource shares を開き、プラットフォーム側から共有されているリソース（`transit-gateway-share`）を承認します（Organizations内共有の場合は自動承認されます）。
+2.  **AWS RAM の自動承諾**:
+    *   本 Landing Zone 環境では Organizations レベルでの RAM 共有（`aws_ram_sharing_with_organization`）が有効化されているため、アタッチメントの作成や共有の受け入れは**手動の承認操作なしで自動的に完了（Auto-Accept）**されます。
 3.  **アタッチメントのステータス確認**:
     *   VPC ➔ Transit gateway attachments を確認し、ステータスが `available` であることを確認。
 4.  **双方向疎通テスト**:

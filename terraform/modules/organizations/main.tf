@@ -23,11 +23,15 @@ resource "aws_organizations_organization" "org" {
     "cloudtrail.amazonaws.com",
     "config.amazonaws.com",
     "guardduty.amazonaws.com",
+    "ram.amazonaws.com",
     "securityhub.amazonaws.com",
     "sso.amazonaws.com"
   ]
   feature_set = "ALL"
 }
+
+# AWS RAM の組織内自動承諾（自動共有）を有効化
+resource "aws_ram_sharing_with_organization" "ram" {}
 
 # Core OU
 resource "aws_organizations_organizational_unit" "core" {
