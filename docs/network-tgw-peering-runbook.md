@@ -120,15 +120,15 @@ resource "aws_ec2_transit_gateway_vpc_attachment" "eks_tgw" {
 }
 ```
 
-#### 2. サブネットルートテーブルへの TGW ルート追加
-Spoke 側の VPC ルートテーブルに、特定の閉域宛て（または他環境宛て）の通信を TGW へ転送するルートを追加します。
+#### 2. サブネットルートテーブルへの TGW ルート追加（集約アウトバウンド対応）
+Spoke VPC 側の NAT Gateway を完全に廃止（`single_nat_gateway = false` または `nat_gateways = 0`）した上で、プライベートサブネット用のルートテーブルに対して、インターネット宛て（`0.0.0.0/0`）のデフォルトルートの送信先を共有された TGW に設定します。
 
 ```hcl
-# プライベートサブネットから TGW 宛てのルート定義
-resource "aws_route" "to_tgw" {
+# プライベートサブネットから TGW 宛てにデフォルトルート (0.0.0.0/0) を設定
+resource "aws_route" "default_to_tgw" {
   count                  = length(module.vpc.private_route_table_ids)
   route_table_id         = module.vpc.private_route_table_ids[count.index]
-  destination_cidr_block = "10.0.0.0/8" # 組織内共通のIP範囲 (例)
+  destination_cidr_block = "0.0.0.0/0" # すべてのアウトバウンド通信を TGW へ転送
   transit_gateway_id     = data.aws_ec2_transit_gateway.shared.id
 }
 ```
@@ -168,16 +168,16 @@ export class TgwAttachment extends Construct {
 }
 ```
 
-#### 2. サブネットルートテーブルへの TGW ルート追加
-CDK VPC を使用している場合、プライベートサブネットのルートテーブルを取得し、CfnRoute をアタッチします。
+#### 2. サブネットルートテーブルへの TGW ルート追加（集約アウトバウンド対応）
+CDK VPC 構築時において、NAT Gateway を完全に排除（`natGateways: 0`）し、プライベートサブネットからインターネット宛て（`0.0.0.0/0`）のデフォルトルートを TGW へ転送するように定義します。
 
 ```typescript
 const privateSubnets = props.vpc.selectSubnets({ subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS });
 
 privateSubnets.subnets.forEach((subnet, index) => {
-  new ec2.CfnRoute(this, `RouteToTgw-${index}`, {
+  new ec2.CfnRoute(this, `DefaultRouteToTgw-${index}`, {
     routeTableId: subnet.routeTable.routeTableId,
-    destinationCidrBlock: '10.0.0.0/8', // 組織内閉域宛てのCIDRブロック
+    destinationCidrBlock: '0.0.0.0/0', // すべてのアウトバウンド通信を TGW へ転送
     transitGatewayId: props.tgwId,
   });
 });

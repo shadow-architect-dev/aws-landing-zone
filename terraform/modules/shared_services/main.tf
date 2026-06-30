@@ -19,6 +19,24 @@ variable "accounts" {
   })
 }
 
+variable "vpc_cidr" {
+  type        = string
+  description = "VPC CIDR for Shared Services VPC"
+  default     = "10.0.0.0/16"
+}
+
+variable "azs" {
+  type        = list(string)
+  description = "Target Availability Zones"
+  default     = ["ap-northeast-1a", "ap-northeast-1c", "ap-northeast-1d"]
+}
+
+variable "single_nat_gateway" {
+  type        = bool
+  description = "Enable single NAT Gateway for cost saving in non-prod"
+  default     = true
+}
+
 # ------------------------------------------------------------------------------
 # 1. GitHub Actions 用の OIDC プロバイダーを作成
 # ------------------------------------------------------------------------------
@@ -167,6 +185,146 @@ resource "aws_ram_principal_association" "ipam_principals" {
   count              = length(local.spoke_accounts)
   principal          = local.spoke_accounts[count.index]
   resource_share_arn = aws_ram_resource_share.ipam_share.arn
+}
+
+# ------------------------------------------------------------------------------
+# 5. Shared Services Centralized VPC (Hub)
+# ------------------------------------------------------------------------------
+
+resource "aws_vpc" "shared" {
+  cidr_block           = var.vpc_cidr
+  enable_dns_hostnames = true
+  enable_dns_support   = true
+
+  tags = {
+    Name = "landingzone-shared-services-vpc"
+  }
+}
+
+resource "aws_internet_gateway" "gw" {
+  vpc_id = aws_vpc.shared.id
+
+  tags = {
+    Name = "landingzone-shared-services-igw"
+  }
+}
+
+# Public Subnets (for NAT Gateway placements)
+resource "aws_subnet" "public" {
+  count                   = length(var.azs)
+  vpc_id                  = aws_vpc.shared.id
+  cidr_block              = cidrsubnet(var.vpc_cidr, 8, count.index)
+  availability_zone       = var.azs[count.index]
+  map_public_ip_on_launch = true
+
+  tags = {
+    Name = "shared-public-subnet-${var.azs[count.index]}"
+  }
+}
+
+# Private Subnets (for TGW Attachment placements)
+resource "aws_subnet" "private" {
+  count             = length(var.azs)
+  vpc_id            = aws_vpc.shared.id
+  cidr_block        = cidrsubnet(var.vpc_cidr, 8, count.index + 10)
+  availability_zone = var.azs[count.index]
+
+  tags = {
+    Name = "shared-private-subnet-${var.azs[count.index]}"
+  }
+}
+
+# Elastic IP for NAT Gateway
+resource "aws_eip" "nat" {
+  count  = var.single_nat_gateway ? 1 : length(var.azs)
+  domain = "vpc"
+
+  tags = {
+    Name = "shared-nat-eip-${count.index}"
+  }
+}
+
+# NAT Gateway (Central Outbound Gateway)
+resource "aws_nat_gateway" "nat" {
+  count         = var.single_nat_gateway ? 1 : length(var.azs)
+  allocation_id = aws_eip.nat[count.index].id
+  subnet_id     = aws_subnet.public[count.index].id
+
+  tags = {
+    Name = "shared-nat-gateway-${count.index}"
+  }
+}
+
+# Route Tables
+resource "aws_route_table" "public" {
+  vpc_id = aws_vpc.shared.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.gw.id
+  }
+
+  tags = {
+    Name = "shared-public-rt"
+  }
+}
+
+resource "aws_route_table_association" "public" {
+  count          = length(var.azs)
+  subnet_id      = aws_subnet.public[count.index].id
+  route_table_id = aws_route_table.public.id
+}
+
+# Private Route Tables
+resource "aws_route_table" "private" {
+  count  = length(var.azs)
+  vpc_id = aws_vpc.shared.id
+
+  # 集約デフォルトルート (インターネット宛ては NAT GW へ)
+  route {
+    cidr_block     = "0.0.0.0/0"
+    nat_gateway_id = aws_nat_gateway.nat[var.single_nat_gateway ? 0 : count.index].id
+  }
+
+  # リターンルート (Spoke宛ては TGW へ)
+  route {
+    cidr_block         = "10.0.0.0/8"
+    transit_gateway_id = aws_ec2_transit_gateway.tgw.id
+  }
+
+  tags = {
+    Name = "shared-private-rt-${var.azs[count.index]}"
+  }
+}
+
+resource "aws_route_table_association" "private" {
+  count          = length(var.azs)
+  subnet_id      = aws_subnet.private[count.index].id
+  route_table_id = aws_route_table.private[count.index].id
+}
+
+# ------------------------------------------------------------------------------
+# 6. Transit Gateway VPC Attachment (Shared Services VPC)
+# ------------------------------------------------------------------------------
+
+resource "aws_ec2_transit_gateway_vpc_attachment" "shared_services" {
+  transit_gateway_id = aws_ec2_transit_gateway.tgw.id
+  vpc_id             = aws_vpc.shared.id
+  subnet_ids         = aws_subnet.private[*].id
+
+  transit_gateway_default_route_table_association = true
+  transit_gateway_default_route_table_propagation = true
+
+  tags = {
+    Name = "shared-services-tgw-attachment"
+  }
+}
+
+# TGW のデフォルトルートテーブルに 0.0.0.0/0 (Egress) を追加し、Shared Services VPC へ流す
+resource "aws_ec2_transit_gateway_route" "default_egress" {
+  destination_cidr_block         = "0.0.0.0/0"
+  transit_gateway_attachment_id  = aws_ec2_transit_gateway_vpc_attachment.shared_services.id
+  transit_gateway_route_table_id = aws_ec2_transit_gateway.tgw.association_default_route_table_id
 }
 
 # ------------------------------------------------------------------------------
