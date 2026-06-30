@@ -63,7 +63,7 @@ graph TD
     *   [imports.tf](file:///c:/Git/aws-landing-zone/terraform/imports.tf): 既存の CDK でプロビジョニングされたリソースを再作成せずにインポートするための `import` ブロック群。
     *   `modules/`: 各スタックを移行したモジュール群（`organizations`, `log_archive`, `security_audit`, `identity`, `shared_services`, `account_factory`）。
 *   `docs/` - 運用管理ドキュメント
-    *   [gitops-terraform-runbook.md](file:///c:/Git/aws-landing-zone/docs/gitops-terraform-runbook.md): CDK から Terraform への安全な移行手順、および新規アカウント追加・削除の GitOps 運用マニュアル。
+    *   [gitops-terraform-runbook.md](file:///c:/Git/aws-landing-zone/docs/gitops-terraform-runbook.md): accounts.yaml を用いた新規アカウント追加・削除の GitOps 運用マニュアル。
     *   [network-tgw-peering-runbook.md](file:///c:/Git/aws-landing-zone/docs/network-tgw-peering-runbook.md): 個別ワークロード（EKS/ECS）から TGW Peering 接続および IPAM 動的アロケーションを行い、集約アウトバウンド（Common Egress）にルーティングするための接続仕様書。
 
 ---
@@ -91,7 +91,7 @@ sequenceDiagram
 
 ## 🔑 ユーザー側で必要なアクション (Setup & Configuration)
 
-本マルチアカウント環境のテンプレートを実際に AWS 上に展開し運用するには、以下の設定と手動アクションが必要です。詳細は [gitops-terraform-runbook.md](file:///c:/Git/aws-landing-zone/docs/gitops-terraform-runbook.md) をご確認ください。
+本マルチアカウント環境のテンプレートを実際に AWS 上に展開し運用するには、以下の設定と手動アクションが必要です。
 
 ### 0. 初期セットアップ: リモートバックエンド（S3/DynamoDB）の構築
 本プロジェクトでは、インフラのデプロイ競合（ステートロック）とデータ保護のため、S3 と DynamoDB によるリモートバックエンド構成を採用しています。新規に環境をデプロイする場合は、以下のブートストラップ手順を実行してください。
