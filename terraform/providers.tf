@@ -69,3 +69,33 @@ provider "aws" {
     session_name = "terraform-prod-eks-session"
   }
 }
+
+# App Dev アカウント用プロバイダー
+provider "aws" {
+  alias  = "dev"
+  region = var.region
+  assume_role {
+    role_arn     = "arn:aws:iam::${var.accounts.dev}:role/OrganizationAccountAccessRole"
+    session_name = "terraform-dev-session"
+  }
+}
+
+# App Stg アカウント用プロバイダー
+provider "aws" {
+  alias  = "stg"
+  region = var.region
+  assume_role {
+    role_arn     = "arn:aws:iam::${var.accounts.stg}:role/OrganizationAccountAccessRole"
+    session_name = "terraform-stg-session"
+  }
+}
+
+# App Prod アカウント用プロバイダー
+provider "aws" {
+  alias  = "prod"
+  region = var.region
+  assume_role {
+    role_arn     = "arn:aws:iam::${var.accounts.prod}:role/OrganizationAccountAccessRole"
+    session_name = "terraform-prod-session"
+  }
+}

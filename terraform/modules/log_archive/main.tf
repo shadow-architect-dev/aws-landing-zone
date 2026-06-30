@@ -358,6 +358,142 @@ resource "aws_iam_role_policy" "eks_fluent_bit_cross_account_policy" {
 }
 
 # ------------------------------------------------------------------------------
+# 6. Athena Log Analytics Infrastructure
+# ------------------------------------------------------------------------------
+
+# Athena クエリ結果保存用 S3 バケット
+resource "aws_s3_bucket" "athena_results" {
+  bucket        = "aws-landing-zone-athena-results-${data.aws_caller_identity.current.account_id}-${data.aws_region.current.name}"
+  force_destroy = false
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "athena_results" {
+  bucket = aws_s3_bucket.athena_results.id
+  rule {
+    apply_server_side_encryption_by_default {
+      kms_master_key_id = aws_kms_key.cloudtrail.arn
+      sse_algorithm     = "aws:kms"
+    }
+  }
+}
+
+resource "aws_s3_bucket_public_access_block" "athena_results" {
+  bucket                  = aws_s3_bucket.athena_results.id
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+# Athena Database
+resource "aws_athena_database" "logs" {
+  name   = "landingzone_logs_analytics"
+  bucket = aws_s3_bucket.athena_results.id
+
+  encryption_configuration {
+    encryption_option = "SSE_KMS"
+    kms_key           = aws_kms_key.cloudtrail.arn
+  }
+}
+
+# Athena Workgroup
+resource "aws_athena_workgroup" "analytics" {
+  name = "landingzone-analytics-workgroup"
+
+  configuration {
+    enforce_workgroup_configuration    = true
+    publish_cloudwatch_metrics_enabled = true
+
+    result_configuration {
+      output_location = "s3://${aws_s3_bucket.athena_results.bucket}/"
+
+      encryption_configuration {
+        encryption_option = "SSE_KMS"
+        kms_key_arn       = aws_kms_key.cloudtrail.arn
+      }
+    }
+  }
+}
+
+# ------------------------------------------------------------------------------
+# 7. Athena Named Queries for Log Analysis
+# ------------------------------------------------------------------------------
+
+# VPC Flow Logs 外部テーブル作成クエリ
+resource "aws_athena_named_query" "create_vpc_flow_logs_table" {
+  name      = "create-vpc-flow-logs-table"
+  workgroup = aws_athena_workgroup.analytics.id
+  database  = aws_athena_database.logs.name
+  query     = <<EOF
+CREATE EXTERNAL TABLE IF NOT EXISTS vpc_flow_logs (
+  version int,
+  account_id string,
+  interface_id string,
+  srcaddr string,
+  dstaddr string,
+  srcport int,
+  dstport int,
+  protocol int,
+  packets bigint,
+  bytes bigint,
+  start_time bigint,
+  end_time bigint,
+  action string,
+  log_status string
+)
+PARTITIONED BY (dt string)
+ROW FORMAT DELIMITED
+FIELDS TERMINATED BY ' '
+LOCATION 's3://${aws_s3_bucket.log_archive.bucket}/vpc-flow-logs/'
+TBLPROPERTIES ("skip.header.line.count"="1");
+EOF
+}
+
+# EKS コンテナログ（Fluent Bit）外部テーブル作成クエリ
+resource "aws_athena_named_query" "create_eks_container_logs_table" {
+  name      = "create-eks-container-logs-table"
+  workgroup = aws_athena_workgroup.analytics.id
+  database  = aws_athena_database.logs.name
+  query     = <<EOF
+CREATE EXTERNAL TABLE IF NOT EXISTS eks_container_logs (
+  log string,
+  stream string,
+  time string,
+  kubernetes struct<
+    pod_name: string,
+    namespace_name: string,
+    pod_id: string,
+    host: string,
+    container_name: string,
+    docker_id: string,
+    container_hash: string,
+    container_image: string
+  >
+)
+ROW FORMAT SERDE 'org.openx.data.jsonserde.JsonSerDe'
+LOCATION 's3://${aws_s3_bucket.log_archive.bucket}/workloads/';
+EOF
+}
+
+# エラー分析クエリテンプレート
+resource "aws_athena_named_query" "query_eks_errors" {
+  name      = "query-eks-errors"
+  workgroup = aws_athena_workgroup.analytics.id
+  database  = aws_athena_database.logs.name
+  query     = <<EOF
+SELECT 
+  time, 
+  kubernetes.pod_name, 
+  kubernetes.container_name, 
+  log 
+FROM eks_container_logs 
+WHERE log LIKE '%ERROR%' OR log LIKE '%Exception%' OR log LIKE '%FATAL%'
+ORDER BY time DESC
+LIMIT 100;
+EOF
+}
+
+# ------------------------------------------------------------------------------
 # Outputs
 # ------------------------------------------------------------------------------
 

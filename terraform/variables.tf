@@ -81,3 +81,9 @@ variable "github_eks_repo" {
   description = "GitHub repository for EKS project OIDC trust role"
   default     = "YOUR_ORGANIZATION/aws-eks-three-tier"
 }
+
+variable "datadog_external_id" {
+  type        = string
+  description = "External ID provided by Datadog AWS Integration page"
+  default     = "datadog-external-id-placeholder"
+}

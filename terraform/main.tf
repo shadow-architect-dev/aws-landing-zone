@@ -105,3 +105,79 @@ module "eks_workload_baseline_prod" {
 
   github_eks_repo = var.github_eks_repo
 }
+
+# ==============================================================================
+# 8. Datadog AWS API Integration Configuration
+# ==============================================================================
+
+module "datadog_integration_management" {
+  source              = "./modules/datadog_integration"
+  datadog_external_id = var.datadog_external_id
+  providers = {
+    aws = aws.management
+  }
+}
+
+module "datadog_integration_log_archive" {
+  source              = "./modules/datadog_integration"
+  datadog_external_id = var.datadog_external_id
+  providers = {
+    aws = aws.log_archive
+  }
+}
+
+module "datadog_integration_audit" {
+  source              = "./modules/datadog_integration"
+  datadog_external_id = var.datadog_external_id
+  providers = {
+    aws = aws.audit
+  }
+}
+
+module "datadog_integration_dev" {
+  source              = "./modules/datadog_integration"
+  datadog_external_id = var.datadog_external_id
+  providers = {
+    aws = aws.dev
+  }
+}
+
+module "datadog_integration_stg" {
+  source              = "./modules/datadog_integration"
+  datadog_external_id = var.datadog_external_id
+  providers = {
+    aws = aws.stg
+  }
+}
+
+module "datadog_integration_prod" {
+  source              = "./modules/datadog_integration"
+  datadog_external_id = var.datadog_external_id
+  providers = {
+    aws = aws.prod
+  }
+}
+
+module "datadog_integration_dev_eks" {
+  source              = "./modules/datadog_integration"
+  datadog_external_id = var.datadog_external_id
+  providers = {
+    aws = aws.dev_eks
+  }
+}
+
+module "datadog_integration_stg_eks" {
+  source              = "./modules/datadog_integration"
+  datadog_external_id = var.datadog_external_id
+  providers = {
+    aws = aws.stg_eks
+  }
+}
+
+module "datadog_integration_prod_eks" {
+  source              = "./modules/datadog_integration"
+  datadog_external_id = var.datadog_external_id
+  providers = {
+    aws = aws.prod_eks
+  }
+}
