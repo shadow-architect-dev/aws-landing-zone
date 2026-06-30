@@ -26,6 +26,27 @@ graph TD
     WorkloadsOU --> Prod[Production Account]
 ```
 
+## 🚀 プラットフォーム高度化機能（Platform Capabilities）
+
+マルチアカウントの基盤統制に加え、本 Landing Zone では以下の高度なプラットフォーム機能をプロビジョニングし、運用の自動化、FinOps の最大化、統合監視を実現しています。
+
+1. **Transit Gateway ＆ AWS RAM による Hub-and-Spoke 接続自動化**:
+   - `Shared Services` アカウント上に中央ハブとなる **AWS Transit Gateway (TGW)** をデプロイ。
+   - AWS RAM 経由で各ワークロードアカウント（Dev, Stg, Prod等）へ TGW 使用権限を組織内自動共有（手動承認不要）。
+2. **AWS VPC IPAM (IP Address Manager) ＆ 組織内共有**:
+   - `10.0.0.0/8` の親 IPAM プールを構築し、RAM を用いて各子アカウントに共有。
+   - 個別ワークロード側で VPC を作成する際、静的な IP 定義をせずとも IPAM から自動的に一意の CIDR をアロケーション可能にし、IPアドレス重複を自動防止。
+3. **集約アウトバウンド (Common Egress) アーキテクチャ**:
+   - 各個別ワークロード（EKS/ECS）側の高コストな NAT Gateway をすべて廃止（`nat_gateways = 0`）し、インフラ維持費を大幅削減（FinOps 最適化）。
+   - 代わりに `Shared Services` VPC 内に構築した集約 NAT Gateway 経由で、すべての Spoke VPC のインターネット宛てアウトバウンド通信を集約して転送するルーティングを TGW 経由で構築。
+4. **Datadog AWS API 統合（マルチアカウント対応）**:
+   - 組織内の全9アカウントに対して、Datadog クロスアカウント連携用 IAM ロールを自動アタッチ。最小権限ポリシーに基づき、アカウントを横断した統合メトリクス収集とセキュリティ監視を自動化。
+5. **Athena ログ分析プラットフォーム (Log Archive)**:
+   - `Log Archive` アカウント内の集約ログ保存バケットに対して Athena 分析用データベース・クエリ暗号化強制ワークグループをプロビジョニング。
+   - VPC Flow Logs や Fluent Bit（EKSコンテナログ）の自動パース用テーブル定義 DDL、および Named Query（エラー自動抽出）をあらかじめ定義。
+
+---
+
 ### 📂 管理リソース・ディレクトリ構成
 
 *   `policies/` - 組織共通ガードレール（SCP）およびタグポリシー定義（JSON）
@@ -43,6 +64,7 @@ graph TD
     *   `modules/`: 各スタックを移行したモジュール群（`organizations`, `log_archive`, `security_audit`, `identity`, `shared_services`, `account_factory`）。
 *   `docs/` - 運用管理ドキュメント
     *   [gitops-terraform-runbook.md](file:///c:/Git/aws-landing-zone/docs/gitops-terraform-runbook.md): CDK から Terraform への安全な移行手順、および新規アカウント追加・削除の GitOps 運用マニュアル。
+    *   [network-tgw-peering-runbook.md](file:///c:/Git/aws-landing-zone/docs/network-tgw-peering-runbook.md): 個別ワークロード（EKS/ECS）から TGW Peering 接続および IPAM 動的アロケーションを行い、集約アウトバウンド（Common Egress）にルーティングするための接続仕様書。
 
 ---
 
