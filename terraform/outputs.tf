@@ -64,3 +64,20 @@ output "eks_prod_deploy_role_arn" {
   value       = module.eks_workload_baseline_prod.github_deploy_role_arn
   description = "GitHub Actions OIDC Deploy Role ARN for EKS Prod environment"
 }
+
+# --- Transit Gateway & IPAM Parameters ---
+
+output "tgw_id" {
+  value       = module.shared_services.tgw_id
+  description = "Transit Gateway ID"
+}
+
+output "tgw_arn" {
+  value       = module.shared_services.tgw_arn
+  description = "Transit Gateway ARN"
+}
+
+output "ipam_pool_id" {
+  value       = module.shared_services.ipam_pool_id
+  description = "VPC IPAM Shared Parent Pool ID"
+}

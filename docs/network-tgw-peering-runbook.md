@@ -44,6 +44,38 @@
 > [!WARNING]
 > 個別リポジトリ側で VPC を初期構築または修正する際は、必ず上記台帳に指定された CIDR ブロックを使用してください。特に `dev` 環境における旧設定 `10.0.0.0/16` は、TGW ルーティングが破綻するため利用禁止とします。
 
+### 🏷️ AWS VPC IPAM (IP Address Manager) による自動アロケーション
+
+本プロジェクトでは、静的な IP 割り当てに加えて、**AWS VPC IPAM** をプロビジョニングし、大元の親プール (`10.0.0.0/8`) を AWS RAM 経由で Spoke アカウントへ共有しています。個別ワークロード側で新規に VPC を作成する際は、静的指定の代わりに IPAM プールから動的に CIDR アロケーションを受けることが推奨されます。
+
+#### EKS 側 (Terraform) での IPAM VPC 作成例
+```hcl
+data "aws_vpc_ipam_pool" "shared_parent" {
+  id = var.ipam_pool_id # プラットフォーム側から同期された IPAM プール ID
+}
+
+resource "aws_vpc" "eks_vpc" {
+  ipv4_ipam_pool_id   = data.aws_vpc_ipam_pool.shared_parent.id
+  ipv4_netmask_length = 16 # アロケートするネットマスク長
+
+  tags = {
+    Name = "eks-vpc-from-ipam"
+  }
+}
+```
+
+#### ECS 側 (AWS CDK / TypeScript) での IPAM VPC 作成例
+```typescript
+const vpc = new ec2.Vpc(this, 'Vpc', {
+  ipAddresses: ec2.IpAddresses.awsIpamAllocation({
+    ipv4IpamPoolId: props.ipamPoolId,
+    ipv4NetmaskLength: 16,
+  }),
+  maxAzs: 3,
+  // ... サブネット設定など
+});
+```
+
 ---
 
 ## 🛠️ 個別リポジトリ側の接続実装サンプル

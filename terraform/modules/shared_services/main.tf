@@ -113,6 +113,63 @@ resource "aws_ram_principal_association" "tgw_principals" {
 }
 
 # ------------------------------------------------------------------------------
+# 4. AWS VPC IPAM (IP Address Manager) & IPAM Pool
+# ------------------------------------------------------------------------------
+
+# IPAM 本体
+resource "aws_vpc_ipam" "main" {
+  description = "Landing Zone Global IP Address Manager"
+
+  operating_regions {
+    region_name = var.region
+  }
+
+  tags = {
+    Name = "landingzone-global-ipam"
+  }
+}
+
+# 親 IPAM プール
+resource "aws_vpc_ipam_pool" "parent" {
+  address_family = "ipv4"
+  ipam_scope_id  = aws_vpc_ipam.main.private_default_scope_id
+  description    = "Landing Zone Parent IPAM Pool"
+
+  tags = {
+    Name = "landingzone-parent-pool"
+  }
+}
+
+# 親 IPAM プールに大元の CIDR (10.0.0.0/8) を割り当て
+resource "aws_vpc_ipam_pool_cidr" "parent_cidr" {
+  ipam_pool_id = aws_vpc_ipam_pool.parent.id
+  cidr         = "10.0.0.0/8"
+}
+
+# IPAM プール共有用の AWS RAM Resource Share
+resource "aws_ram_resource_share" "ipam_share" {
+  name                      = "ipam-pool-share"
+  allow_external_principals = false
+
+  tags = {
+    Name = "ipam-pool-share"
+  }
+}
+
+# IPAM プールを RAM に関連付け
+resource "aws_ram_resource_association" "ipam_association" {
+  resource_arn       = aws_vpc_ipam_pool.parent.arn
+  resource_share_arn = aws_ram_resource_share.ipam_share.arn
+}
+
+# 共有先アカウントへの RAM プリンシパル関連付け
+resource "aws_ram_principal_association" "ipam_principals" {
+  count              = length(local.spoke_accounts)
+  principal          = local.spoke_accounts[count.index]
+  resource_share_arn = aws_ram_resource_share.ipam_share.arn
+}
+
+# ------------------------------------------------------------------------------
 # Outputs
 # ------------------------------------------------------------------------------
 
@@ -128,4 +185,9 @@ output "tgw_id" {
 output "tgw_arn" {
   value       = aws_ec2_transit_gateway.tgw.arn
   description = "ARN of the shared Transit Gateway"
+}
+
+output "ipam_pool_id" {
+  value       = aws_vpc_ipam_pool.parent.id
+  description = "ID of the shared parent IPAM pool"
 }
