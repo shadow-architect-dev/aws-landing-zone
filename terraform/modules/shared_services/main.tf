@@ -3,6 +3,21 @@
 # ==============================================================================
 
 variable "github_repo" { type = string }
+variable "region" { type = string }
+variable "accounts" {
+  type = object({
+    management     = string
+    logArchive     = string
+    audit          = string
+    sharedServices = string
+    dev            = string
+    stg            = string
+    prod           = string
+    dev_eks        = string
+    stg_eks        = string
+    prod_eks       = string
+  })
+}
 
 # ------------------------------------------------------------------------------
 # 1. GitHub Actions 用の OIDC プロバイダーを作成
@@ -52,9 +67,65 @@ resource "aws_iam_role_policy_attachment" "github_deploy_admin" {
 }
 
 # ------------------------------------------------------------------------------
+# 3. AWS Transit Gateway (TGW) & AWS RAM for Cross-Account Sharing
+# ------------------------------------------------------------------------------
+
+locals {
+  spoke_accounts = [
+    var.accounts.dev,
+    var.accounts.stg,
+    var.accounts.prod,
+    var.accounts.dev_eks,
+    var.accounts.stg_eks,
+    var.accounts.prod_eks
+  ]
+}
+
+# Transit Gateway
+resource "aws_ec2_transit_gateway" "tgw" {
+  description                     = "Landing Zone Shared Transit Gateway"
+  default_route_table_association = "enable"
+  default_route_table_propagation = "enable"
+  auto_accept_shared_attachments  = "enable"
+
+  tags = {
+    Name = "landingzone-shared-tgw"
+  }
+}
+
+# AWS RAM Resource Share
+resource "aws_ram_resource_share" "tgw_share" {
+  name                      = "transit-gateway-share"
+  allow_external_principals = false
+}
+
+# Associate TGW with RAM
+resource "aws_ram_resource_association" "tgw_association" {
+  resource_arn       = aws_ec2_transit_gateway.tgw.arn
+  resource_share_arn = aws_ram_resource_share.tgw_share.arn
+}
+
+# Associate Spoke Accounts as Principals
+resource "aws_ram_principal_association" "tgw_principals" {
+  count              = length(local.spoke_accounts)
+  principal          = local.spoke_accounts[count.index]
+  resource_share_arn = aws_ram_resource_share.tgw_share.arn
+}
+
+# ------------------------------------------------------------------------------
 # Outputs
 # ------------------------------------------------------------------------------
 
 output "github_deploy_role_arn" {
   value = aws_iam_role.github_deploy.arn
+}
+
+output "tgw_id" {
+  value       = aws_ec2_transit_gateway.tgw.id
+  description = "ID of the shared Transit Gateway"
+}
+
+output "tgw_arn" {
+  value       = aws_ec2_transit_gateway.tgw.arn
+  description = "ARN of the shared Transit Gateway"
 }

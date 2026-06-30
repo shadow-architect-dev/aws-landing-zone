@@ -54,14 +54,16 @@ module "identity" {
   sso_group_ids    = var.sso_group_ids
 }
 
-# 5. Shared Services モジュール (管理アカウントにデプロイ)
+# 5. Shared Services モジュール (Shared Services アカウントにデプロイ)
 module "shared_services" {
   source = "./modules/shared_services"
   providers = {
-    aws = aws.management
+    aws = aws.shared_services
   }
 
   github_repo = var.github_repo
+  accounts    = var.accounts
+  region      = var.region
 }
 
 # 6. Account Factory モジュール (管理アカウントにデプロイ)

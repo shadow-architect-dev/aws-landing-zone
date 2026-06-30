@@ -99,3 +99,13 @@ provider "aws" {
     session_name = "terraform-prod-session"
   }
 }
+
+# Shared Services アカウント用プロバイダー
+provider "aws" {
+  alias  = "shared_services"
+  region = var.region
+  assume_role {
+    role_arn     = "arn:aws:iam::${var.accounts.sharedServices}:role/OrganizationAccountAccessRole"
+    session_name = "terraform-shared-services-session"
+  }
+}
