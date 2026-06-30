@@ -2,7 +2,7 @@
 
 このリポジトリは、AWS Organizations および AWS Control Tower を用いて、エンタープライズ規模のマルチアカウント構造、ガードレール（SCP）、およびガバナンスを **Terraform (HCL)** で一元管理するためのインフラベースラインリポジトリです。
 
-個別ワークロードリポジトリである **[learning-ts-concepts](https://github.com/shadow-architect-dev/learning-ts-concepts)** と連携し、安全な3層Webアーキテクチャを実行するための「土台（プラットフォーム）」を構成します。
+個別ワークロードリポジトリである **[learning-terraform-concepts (EKS 3層インフラ)](https://github.com/shadow-architect-dev/learning-terraform-concepts)** および **[learning-ts-concepts (ECS Fargate 3層インフラ)](https://github.com/shadow-architect-dev/learning-ts-concepts)** と密に連携し、安全なマルチアカウントWebアプリケーションアーキテクチャを実行するための共有サービス・閉域ネットワーク等の「土台（プラットフォーム）」を構成します。
 
 ---
 
