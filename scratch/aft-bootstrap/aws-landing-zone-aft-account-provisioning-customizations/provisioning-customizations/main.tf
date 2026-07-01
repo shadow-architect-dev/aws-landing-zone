@@ -1,5 +1,5 @@
-# ==============================================================================
-# AFT Account Provisioning Customizations Baseline
-# ==============================================================================
+# AFT Account Provisioning Customizations
+# Place resources here that need to run before or after the account is provisioned.
+# Example: Creating dynamic integration triggers, registering account with external CMDB, etc.
 
-# 初期構成では空にしておき、アカウント払い出し時に API コールや追加の Lambda トリガーが必要な場合に追記します
+resource "random_uuid" "prov_id" {}

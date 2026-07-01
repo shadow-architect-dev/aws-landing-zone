@@ -1,14 +1,18 @@
-# AFT Account Request Template
+# AFT Account Request template example for EKS Development Account
 account_request:
   control_tower_parameters:
-    AccountEmail: "aws-root+eks-dev-aft@example.com"
-    AccountName: "eks-three-tier-dev"
-    ManagedOrganizationalUnit: "Development" # Nested OU 名を指定可能 (AFTが自動移動を解決します)
-    SSOUserEmail: "sso-admin@example.com"
-    SSOUserFirstName: "SSO"
-    SSOUserLastName: "Admin"
-
-  # カスタマイズパラメータの追加
+    account_email: "aws-eks-dev@corp.internal"
+    account_name: "eks-workload-dev"
+    managed_organizational_unit: "Workloads"
+    sso_user_email: "sso-admin@corp.internal"
+    sso_user_first_name: "Workload"
+    sso_user_last_name: "Admin"
+  account_tags:
+    Environment: "dev"
+    Project: "EKS-Platform"
+    Owner: "platform-team"
+  change_management_parameters:
+    change_requested_by: "platform-engineering-team"
+    change_reason: "Deploy fisc-compliant EKS development tenant"
   custom_fields:
-    environment: "dev"
-    project: "eks-three-tier"
+    vpc_size: "dev-small"

@@ -1,104 +1,141 @@
-# ==============================================================================
-# AWS Control Tower AFT GitOps Repositories Bootstrap Script
-# ==============================================================================
-# このスクリプトは、AFTの稼働に必要な 4 つの専用リポジトリを GitHub 上に Private で自動作成し、
-# 初期テンプレート（ボイラープレート）をコミットして自動プッシュします。
+<#
+.SYNOPSIS
+    AWS Control Tower AFT GitOps 4 Repositories Bootstrap Script
+.DESCRIPTION
+    This script automates the creation of the 4 required GitHub repositories for AWS Control Tower AFT.
+    It provisions the repositories as private on GitHub and pushes their initial boilerplate configurations.
+.PARAMETER GitHubOwner
+    The GitHub username or organization name where the repositories will be created.
+    If omitted, the script dynamically queries the authenticated user using GitHub CLI.
+.EXAMPLE
+    .\bootstrap_aft_repos.ps1 -GitHubOwner "my-org-or-username"
+#>
 
-$ErrorActionPreference = "Stop"
+[CmdletBinding()]
+param(
+    [Parameter(Mandatory = $false)]
+    [string]$GitHubOwner
+)
 
-# GitHub 組織名 / ユーザー名 (必要に応じて書き換えてください)
-$GH_ORG = "shadow-architect-dev"
+# 1. Dependency and Authentication Checks
+Write-Host "=== Step 1: Running Pre-flight Checks ===" -ForegroundColor Cyan
 
-# AFT 用の 4 つのリポジトリ定義
-$REPOSITORIES = @(
+# Check if git is installed
+if (-not (Get-Command "git" -ErrorAction SilentlyContinue)) {
+    Write-Error "Git is not installed or not in PATH. Please install Git."
+    exit 1
+}
+
+# Check if GitHub CLI is installed
+if (-not (Get-Command "gh" -ErrorAction SilentlyContinue)) {
+    Write-Error "GitHub CLI ('gh') is not installed or not in PATH. Please install it."
+    exit 1
+}
+
+# Check if authenticated to GitHub
+Write-Host "Checking GitHub CLI authentication status..."
+$authCheck = & gh auth status 2>&1
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "GitHub CLI is not logged in. Please run 'gh auth login' first to authenticate."
+    exit 1
+}
+
+# Automatically query GitHub Username if not provided
+if ([string]::IsNullOrEmpty($GitHubOwner)) {
+    Write-Host "GitHubOwner parameter omitted. Fetching authenticated username..."
+    $GitHubOwner = & gh api user --jq ".login"
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrEmpty($GitHubOwner)) {
+        Write-Error "Failed to fetch GitHub username. Please explicitly provide -GitHubOwner."
+        exit 1
+    }
+    Write-Host "Automatically detected GitHub Owner: $GitHubOwner" -ForegroundColor Yellow
+}
+
+# Define the 4 AFT repositories
+$repos = @(
     "aws-landing-zone-aft-account-requests",
     "aws-landing-zone-aft-global-customizations",
     "aws-landing-zone-aft-account-customizations",
     "aws-landing-zone-aft-account-provisioning-customizations"
 )
 
-# テンプレートのローカルソースディレクトリ
-$TEMPLATES_SRC = Join-Path $PSScriptRoot "scratch\aft-bootstrap"
-# 作業用の一時フォルダ
-$TEMP_DIR = Join-Path $PSScriptRoot "scratch\aft-bootstrap-working"
+$scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+$boilerplateRoot = Join-Path $scriptRoot "scratch/aft-bootstrap"
 
-# 1. 依存関係のチェック (git & gh)
-Write-Host "🔍 依存関係の検証中..." -ForegroundColor Cyan
-
-if (-not (Get-Command "git" -ErrorAction SilentlyContinue)) {
-    Write-Error "Git がインストールされていないか、PATH が通っていません。"
-}
-if (-not (Get-Command "gh" -ErrorAction SilentlyContinue)) {
-    Write-Error "GitHub CLI (gh) がインストールされていないか、PATH が通っていません。"
+# Verify boilerplate directory exists
+if (-not (Test-Path $boilerplateRoot)) {
+    Write-Error "Boilerplate directory not found at $boilerplateRoot. Please ensure scratch files are present."
+    exit 1
 }
 
-# 2. GitHub CLI 認証状態のチェック
-Write-Host "🔑 GitHub CLI のログインステータスを確認中..." -ForegroundColor Cyan
-try {
-    gh auth status
-} catch {
-    Write-Error "GitHub CLI が認証されていません。先に 'gh auth login' を実行して認証を完了させてください。"
-}
+Write-Host "=== Step 2: Provisioning AFT GitOps Repositories ===" -ForegroundColor Cyan
 
-# 3. リポジトリの自動作成と初期コードプッシュ
-Write-Host "`n🚀 AFT リポジトリの自動構築を開始します..." -ForegroundColor Green
+foreach ($repo in $repos) {
+    Write-Host "`n--------------------------------------------------" -ForegroundColor Gray
+    Write-Host "Processing Repository: $repo" -ForegroundColor Green
+    Write-Host "--------------------------------------------------" -ForegroundColor Gray
 
-if (Test-Path $TEMP_DIR) {
-    Remove-Item -Recurse -Force $TEMP_DIR
-}
-New-Item -ItemType Directory -Path $TEMP_DIR | Out-Null
-
-foreach ($repo in $REPOSITORIES) {
-    Write-Host "`n------------------------------------------------------------" -ForegroundColor DarkGray
-    Write-Host "📦 リポジトリ設定中: $repo" -ForegroundColor Cyan
-    
-    $src_path = Join-Path $TEMPLATES_SRC $repo
-    $dest_path = Join-Path $TEMP_DIR $repo
-
-    if (-not (Test-Path $src_path)) {
-        Write-Warning "ソーステンプレートが見つかりません: $src_path (スキップします)"
-        continue
+    # 2.1 Create Repository on GitHub
+    Write-Host "Creating private repository '$GitHubOwner/$repo' on GitHub..."
+    # Check if repo already exists to prevent duplicate error
+    $repoExists = & gh repo view "$GitHubOwner/$repo" 2>&1
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "Repository '$GitHubOwner/$repo' already exists on GitHub. Skipping repository creation." -ForegroundColor Yellow
+    } else {
+        & gh repo create "$GitHubOwner/$repo" --private --description "AFT GitOps: $repo"
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error "Failed to create repository '$repo' on GitHub. Skipping local push."
+            continue
+        }
+        Write-Host "Successfully created private repository '$GitHubOwner/$repo'." -ForegroundColor Green
     }
 
-    # 一時フォルダへコピー
-    Copy-Item -Path $src_path -Destination $dest_path -Recurse -Force
+    # 2.2 Prepare local repository workspace
+    $workDir = Join-Path $env:TEMP "aft-bootstrap-work\$repo"
+    if (Test-Path $workDir) {
+        Remove-Item -Path $workDir -Recurse -Force | Out-Null
+    }
+    New-Item -ItemType Directory -Path $workDir | Out-Null
 
-    # 1. GitHub上にリポジトリを作成 (既に存在する場合は何もしない)
-    $repo_full_name = "${GH_ORG}/${repo}"
-    Write-Host "🤖 GitHub 上にプライベートリポジトリを作成します: $repo_full_name" -ForegroundColor Yellow
-    
-    try {
-        gh repo create $repo_full_name --private -y
-        Write-Host "✅ リポジトリが正常に作成されました。" -ForegroundColor Green
-    } catch {
-        Write-Host "⚠️ リポジトリが既に存在するか、作成に失敗しました (次に進みます)。" -ForegroundColor Yellow
+    # Copy boilerplate files
+    $sourcePath = Join-Path $boilerplateRoot $repo
+    if (-not (Test-Path $sourcePath)) {
+        Write-Warning "No boilerplate found for $repo at $sourcePath. Initializing empty repository."
+    } else {
+        Write-Host "Copying boilerplate templates to temporary workspace..."
+        Copy-Item -Path "$sourcePath\*" -Destination $workDir -Recurse -Force
     }
 
-    # 2. ローカルGitリポジトリの初期化とプッシュ
-    Write-Host "💾 初期ファイルのコミットとプッシュを行います..." -ForegroundColor Yellow
-    Push-Location $dest_path
+    # 2.3 Initialize Git and push to remote
+    Push-Location $workDir
     try {
-        git init -b main
-        git config user.name "SRE-Bootstrap"
-        git config user.email "sre-bootstrap@example.com"
-        git add .
-        git commit -m "Initialize AFT baseline template"
+        Write-Host "Initializing Git local repository..."
+        & git init | Out-Null
+        & git config user.name "AFT Bootstrapper"
+        & git config user.email "aft-bootstrap@corp.internal"
         
-        # リモートの設定とプッシュ (強制プッシュを避けるため、初回のみに設定)
-        git remote add origin "https://github.com/${repo_full_name}.git"
-        git push -u origin main -f
-        Write-Host "🎉 プッシュが完了しました: https://github.com/${repo_full_name}" -ForegroundColor Green
-    } catch {
-        Write-Host "⚠️ リポジトリ $repo のプッシュ中にエラーが発生しました (リモートの既存ファイルと衝突した可能性があります)。" -ForegroundColor Yellow
-    } finally {
+        Write-Host "Adding files and committing..."
+        & git add .
+        & git commit -m "initial commit: deploy AFT boilerplate code" | Out-Null
+        & git branch -M main
+
+        Write-Host "Pushing initial codebase to GitHub..."
+        & git remote add origin "https://github.com/$GitHubOwner/$repo.git"
+        & git push -u origin main --force
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "Successfully initialized and pushed $repo to GitHub." -ForegroundColor Green
+        } else {
+            Write-Error "Failed to push local commits to GitHub for $repo."
+        }
+    }
+    finally {
         Pop-Location
+        # Cleanup temporary workspace
+        if (Test-Path $workDir) {
+            Remove-Item -Path $workDir -Recurse -Force | Out-Null
+        }
     }
 }
 
-# クリーンアップ
-if (Test-Path $TEMP_DIR) {
-    Remove-Item -Recurse -Force $TEMP_DIR
-}
-
-Write-Host "`n✨ すべての AFT リポジトリの初期セットアップが完了しました！" -ForegroundColor Green
-Write-Host "AFT パイプラインを実行するには、管理アカウントで terraform apply を実行してください。" -ForegroundColor Green
+Write-Host "`n=== Process Complete ===" -ForegroundColor Cyan
+Write-Host "All 4 AFT GitOps repositories have been successfully processed." -ForegroundColor Green

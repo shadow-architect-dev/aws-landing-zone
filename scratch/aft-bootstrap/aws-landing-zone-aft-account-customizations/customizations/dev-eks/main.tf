@@ -1,14 +1,15 @@
-# ==============================================================================
-# AFT Account Customizations (Applied specific to eks-three-tier-dev)
-# ==============================================================================
+# EKS Workload Dev Account Customization
+# Add workload-specific baselines here (e.g. specialized VPC subnets, peering, IAM policies)
 
-# 例：EKS開発アカウント固有でデプロイしたい設定やVPCの動的タグなどを記述します
-resource "aws_ssm_parameter" "aft_environment_label" {
-  name  = "/aft/governance/environment"
+locals {
+  account_id = data.aws_caller_identity.current.account_id
+}
+
+data "aws_caller_identity" "current" {}
+
+# Example: Resource definition specifically for EKS workloads
+resource "aws_ssm_parameter" "eks_env" {
+  name  = "/config/eks/env_name"
   type  = "String"
   value = "development"
-
-  tags = {
-    ManagedBy = "AFT-Account-Customization"
-  }
 }
