@@ -69,6 +69,7 @@ graph TD
 *   `docs/` - 運用管理ドキュメント
     *   [gitops-terraform-runbook.md](file:///c:/Git/aws-landing-zone/docs/gitops-terraform-runbook.md): accounts.yaml を用いた新規アカウント追加・削除の GitOps 運用マニュアル。
     *   [network-tgw-peering-runbook.md](file:///c:/Git/aws-landing-zone/docs/network-tgw-peering-runbook.md): 個別ワークロード（EKS/ECS）から TGW Peering 接続および IPAM 動的アロケーションを行い、集約アウトバウンド（Common Egress）にルーティングするための接続仕様書。
+    *   [platform-slo-sli.md](file:///c:/Git/aws-landing-zone/docs/platform-slo-sli.md): プラットフォーム全体（共通NW/SSO/ログ集約等）の品質目標を定義した SLI/SLO 定義書。
 *   `scratch/aft-bootstrap/` - AFT 監視用の4リポジトリ用のボイラープレート初期構成ファイル群
 *   [bootstrap_aft_repos.ps1](file:///c:/Git/aws-landing-zone/bootstrap_aft_repos.ps1) - GitHub CLI を用いて AFT 用 4 リポジトリを GitHub 上へ自動作成し、上記テンプレートを初期コミット・プッシュするための一括自動構築スクリプト
 
