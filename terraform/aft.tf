@@ -22,10 +22,10 @@ module "control_tower_aft" {
 
   # AFT のオーケストレーションに使用する GitHub 4 リポジトリ連携
   # (owner/repository_name フォーマットで指定)
-  account_request_repo_name                     = "shadow-architect-dev/aws-landing-zone-aft-account-requests"
-  global_customizations_repo_name               = "shadow-architect-dev/aws-landing-zone-aft-global-customizations"
-  account_customizations_repo_name              = "shadow-architect-dev/aws-landing-zone-aft-account-customizations"
-  account_provisioning_customizations_repo_name = "shadow-architect-dev/aws-landing-zone-aft-account-provisioning-customizations"
+  account_request_repo_name                     = "${var.github_owner}/aws-landing-zone-aft-account-requests"
+  global_customizations_repo_name               = "${var.github_owner}/aws-landing-zone-aft-global-customizations"
+  account_customizations_repo_name              = "${var.github_owner}/aws-landing-zone-aft-account-customizations"
+  account_provisioning_customizations_repo_name = "${var.github_owner}/aws-landing-zone-aft-account-provisioning-customizations"
 
   # ----------------------------------------------------------------------------
   # コスト最適化 ＆ ネットワーク設計 (SREベストプラクティス)

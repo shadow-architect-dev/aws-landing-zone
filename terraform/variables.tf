@@ -89,3 +89,9 @@ variable "datadog_external_id" {
   description = "External ID provided by Datadog AWS Integration page"
   default     = "datadog-external-id-placeholder"
 }
+
+variable "github_owner" {
+  type        = string
+  description = "GitHub Org or Username for AFT GitOps repositories"
+  default     = "shadow-architect-dev"
+}

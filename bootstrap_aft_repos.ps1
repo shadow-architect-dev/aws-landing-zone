@@ -103,7 +103,7 @@ foreach ($repo in $repos) {
         Write-Warning "No boilerplate found for $repo at $sourcePath. Initializing empty repository."
     } else {
         Write-Host "Copying boilerplate templates to temporary workspace..."
-        Copy-Item -Path "$sourcePath\*" -Destination $workDir -Recurse -Force
+        Get-ChildItem -Path $sourcePath | Copy-Item -Destination $workDir -Recurse -Force
     }
 
     # 2.3 Initialize Git and push to remote
