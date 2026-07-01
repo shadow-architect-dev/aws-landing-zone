@@ -64,10 +64,10 @@ flowchart TD
 > 初期プロビジョニング後に AWS コンソールでアカウントをサブ OU へ手動移動させる運用は、一時的な妥協策（トイル）であり、モダンな SRE 設計のベストプラクティスではありません。
 > これは、プレーンな AWS Control Tower Account Factory の API が入れ子（Nested）OU への直接のプロビジョニングに対応していない制限に起因しています。
 >
-> **推奨される自動化（トイル削減）アプローチ**:
-> 1. **AFT (Account Factory for Terraform) の導入 (プラットフォーム標準)**:
->    AWS 公式の AFT 構成を Landing Zone に統合することで、`accounts.yaml` 経由の作成から入れ子 OU への自動配置、個別アカウント専用ベースラインの適用までを完全に自動パイプライン化（No-Touch Provisioning）できます。
-> 2. **EventBridge + Lambda による移動処理のイベント駆動自動化**:
+> **プラットフォームによる自動化アプローチ**:
+> 1. **AFT (Account Factory for Terraform) の導入 (実装済み/ロードマップ)**:
+>    本リポジトリには AFT 導入用の設計・構成コード **[aft.tf](file:///c:/Git/aws-landing-zone/terraform/aft.tf)** がすでに整備されています。本番運用へ進む際にこのモジュールを有効化・展開することで、`accounts.yaml` 経由の作成から入れ子 OU への自動配置、個別アカウント専用ベースラインの適用までを完全に自動パイプライン化（No-Touch Provisioning）できます。
+> 2. **EventBridge + Lambda による移動処理のイベント駆動自動化 (代替案)**:
 >    アカウント作成完了イベント (`CreateManagedAccount` の成功) を EventBridge で検知し、Lambda 等の API を介して目的の Nested OU へ自動移動 (`MoveAccount` API) させるサーバーレス自動化タスクをプラットフォーム側に実装することで、完全自動化を実現可能です。
 
 ### 2-2. OIDC 連携デプロイロールの適用

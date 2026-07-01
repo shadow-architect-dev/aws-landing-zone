@@ -39,3 +39,7 @@ accounts:
   - account_name: "eks-three-tier-prod"
     account_email: "aws-root+eks-prod@example.com"
     organizational_unit: "Workloads/Production"
+
+  - account_name: "AFT-Management"
+    account_email: "aws-root+aft-management@example.com"
+    organizational_unit: "Core"

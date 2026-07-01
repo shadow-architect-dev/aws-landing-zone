@@ -109,3 +109,13 @@ provider "aws" {
     session_name = "terraform-shared-services-session"
   }
 }
+
+# AFT Management アカウント用プロバイダー
+provider "aws" {
+  alias  = "aft_management"
+  region = var.region
+  assume_role {
+    role_arn     = "arn:aws:iam::${var.accounts.aft_management}:role/OrganizationAccountAccessRole"
+    session_name = "terraform-aft-management-session"
+  }
+}

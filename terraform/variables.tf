@@ -22,6 +22,7 @@ variable "accounts" {
     dev_eks        = string
     stg_eks        = string
     prod_eks       = string
+    aft_management = string
   })
   description = "AWS Account IDs"
   default = {
@@ -35,6 +36,7 @@ variable "accounts" {
     dev_eks        = "888888888888"
     stg_eks        = "999999999999"
     prod_eks       = "101010101010"
+    aft_management = "121212121212"
   }
 }
 
