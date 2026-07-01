@@ -1,0 +1,14 @@
+# AFT Account Request Template
+account_request:
+  control_tower_parameters:
+    AccountEmail: "aws-root+eks-dev-aft@example.com"
+    AccountName: "eks-three-tier-dev"
+    ManagedOrganizationalUnit: "Development" # Nested OU 名を指定可能 (AFTが自動移動を解決します)
+    SSOUserEmail: "sso-admin@example.com"
+    SSOUserFirstName: "SSO"
+    SSOUserLastName: "Admin"
+
+  # カスタマイズパラメータの追加
+  custom_fields:
+    environment: "dev"
+    project: "eks-three-tier"
