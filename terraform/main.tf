@@ -40,6 +40,7 @@ module "security_audit" {
   providers = {
     aws = aws.audit
   }
+  accounts = var.accounts
 }
 
 # 4. Identity モジュール (管理アカウントにデプロイ)
