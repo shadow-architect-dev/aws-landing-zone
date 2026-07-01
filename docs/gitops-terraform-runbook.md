@@ -43,7 +43,7 @@ flowchart TD
 不要になったアカウントをクローズする際は、以下のハイブリッド手順を実施します：
 
 1. **コードのクリーンアップ**:
-   - `accounts.yaml` から対象アカウント의 定義を削除し、Git にマージして `terraform apply` を完了させます。
+   - `accounts.yaml` から対象アカウントの定義を削除し、Git にマージして `terraform apply` を完了させます。
 2. **手動によるアカウント閉鎖**:
    - AWS 管理アカウントにログインし、**AWS Organizations コンソール** に移動します。
    - クローズ対象のアカウントを選択し、**「閉じる (Close account)」** をクリックして解約手続きを実行します。
@@ -56,10 +56,8 @@ flowchart TD
 
 ### 2-1. アカウントの払い出しと OU 配置
 1. [accounts.yaml](file:///c:/Git/aws-landing-zone/terraform/accounts.yaml) に追加した 3 つのアカウント定義をマージして `terraform apply` します。
-2. これにより、以下の nested OU（入れ子構造）が自動的に作成され、各アカウントが配置されます：
-   - `Workloads/Development` ➔ `eks-three-tier-dev`
-   - `Workloads/Staging` ➔ `eks-three-tier-stg`
-   - `Workloads/Production` ➔ `eks-three-tier-prod`
+2. 初期払い出し時における Control Tower の仕様制限およびアカウントファクトリーモジュール（`account_factory/main.tf` 56行目）の実装マッピングにより、各アカウントはまず親の **`Workloads` OU** (`Workloads (ou-workloads-placeholder)`) に配置されます。
+3. その後、AWS Control Tower / Organizations コンソール上で、あらかじめ作成された nested OU（Development, Staging, Production）へ対象のアカウントを移動（登録）させてください。
 
 ### 2-2. OIDC 連携デプロイロールの適用
 1. 各アカウントのプロビジョニング完了後、実際のアカウント ID を `variables.tf` の `accounts` マップに追加して再デプロイします。
