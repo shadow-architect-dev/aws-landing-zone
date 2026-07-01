@@ -16,3 +16,10 @@
   - 各環境（Dev/Stg/Prod）などの AWS アカウントの新規作成・払い出しは、生の Organizations API (`aws_organizations_account` リソース等の直接操作) を避け、必ず **AWS Control Tower / AWS Landing Zone (AFT や LZA 等)** の Account Factory (Service Catalog 製品) 経由で安全に払い出し、組織の初期セキュリティベースライン（ログ集約、地域制限SCP等）を適用すること。
 - **物理的な隔離設計の遵守**:
   - アカウント間は、物理的にネットワーク（VPC）および IAM 権限境界が完全に隔離・独立されるように設計し、クロスアカウントのアクセスは定義された OIDC デプロイロールや共通ログ集約ロールなどの明示的な許可ポリシーを介した通信のみに制限すること。
+
+## 3. AI エージェント（Antigravity）に対する権限制約 (Read-Only Policy)
+
+- **本リポジトリへの書き込み・コマンド実行の禁止 (No Write/Command Operations)**:
+  - Antigravity は、本リポジトリ (`aws-landing-zone`) 配下のいかなるファイルに対しても新規作成・上書き・編集・削除を一切行ってはならず、読み取り専用（Read-Only）として振る舞うこと。
+  - 本リポジトリに対する `git push` や `git commit`、その他リソースのデプロイやテスト実行コマンドは、AI環境からは一切実行してはならず、すべてユーザーのローカル環境での手動操作に委ねること。
+  - 設計の確認やコードリサーチのためのファイル閲覧（`view_file`）のみを許可する。

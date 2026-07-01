@@ -82,7 +82,7 @@ foreach ($repo in $repos) {
     if ($LASTEXITCODE -eq 0) {
         Write-Host "Repository '$GitHubOwner/$repo' already exists on GitHub. Skipping repository creation." -ForegroundColor Yellow
     } else {
-        & gh repo create "$GitHubOwner/$repo" --private --description "AFT GitOps: $repo"
+        & gh repo create "$GitHubOwner/$repo" --public --description "AFT GitOps: $repo"
         if ($LASTEXITCODE -ne 0) {
             Write-Error "Failed to create repository '$repo' on GitHub. Skipping local push."
             continue
