@@ -30,18 +30,21 @@ graph TD
 
 マルチアカウントの基盤統制に加え、本 Landing Zone では以下の高度なプラットフォーム機能をプロビジョニングし、運用の自動化、FinOps の最大化、統合監視を実現しています。
 
-1. **Transit Gateway ＆ AWS RAM による Hub-and-Spoke 接続自動化**:
+1. **AWS Control Tower AFT (Account Factory for Terraform) 連携＆GitOps自動化**:
+   - `aft.tf` を用いて、AWS公式の AFT 管理エンジン（v1.15.0）を Management アカウントへデプロイ。
+   - `accounts.yaml` への追加をトリガーとし、VCS（GitHub）連携経由で、アカウントの払い出しから入れ子 OU（Nested OU）への自動配置、SecurityHub 有効化などの共通ベースライン（Global Customizations）適用までを完全自動化（No-Touch Provisioning）する GitOps パイプラインを構築。
+2. **Transit Gateway ＆ AWS RAM による Hub-and-Spoke 接続自動化**:
    - `Shared Services` アカウント上に中央ハブとなる **AWS Transit Gateway (TGW)** をデプロイ。
    - AWS RAM 経由で各ワークロードアカウント（Dev, Stg, Prod等）へ TGW 使用権限を組織内自動共有（手動承認不要）。
-2. **AWS VPC IPAM (IP Address Manager) ＆ 組織内共有**:
+3. **AWS VPC IPAM (IP Address Manager) ＆ 組織内共有**:
    - `10.0.0.0/8` の親 IPAM プールを構築し、RAM を用いて各子アカウントに共有。
    - 個別ワークロード側で VPC を作成する際、静的な IP 定義をせずとも IPAM から自動的に一意の CIDR をアロケーション可能にし、IPアドレス重複を自動防止。
-3. **集約アウトバウンド (Common Egress) アーキテクチャ**:
+4. **集約アウトバウンド (Common Egress) アーキテクチャ**:
    - 各個別ワークロード（EKS/ECS）側の高コストな NAT Gateway をすべて廃止（`nat_gateways = 0`）し、インフラ維持費を大幅削減（FinOps 最適化）。
    - 代わりに `Shared Services` VPC 内に構築した集約 NAT Gateway 経由で、すべての Spoke VPC のインターネット宛てアウトバウンド通信を集約して転送するルーティングを TGW 経由で構築。
-4. **Datadog AWS API 統合（マルチアカウント対応）**:
+5. **Datadog AWS API 統合（マルチアカウント対応）**:
    - 組織内の全9アカウントに対して、Datadog クロスアカウント連携用 IAM ロールを自動アタッチ。最小権限ポリシーに基づき、アカウントを横断した統合メトリクス収集とセキュリティ監視を自動化。
-5. **Athena ログ分析プラットフォーム (Log Archive)**:
+6. **Athena ログ分析プラットフォーム (Log Archive)**:
    - `Log Archive` アカウント内の集約ログ保存バケットに対して Athena 分析用データベース・クエリ暗号化強制ワークグループをプロビジョニング。
    - VPC Flow Logs や Fluent Bit（EKSコンテナログ）の自動パース用テーブル定義 DDL、および Named Query（エラー自動抽出）をあらかじめ定義。
 
@@ -57,6 +60,7 @@ graph TD
     *   [google-workspace-setup.md](file:///c:/Git/aws-landing-zone/identity/google-workspace-setup.md): Google Workspace SAML & SCIM 連携セットアップ手順書
     *   [break-glass-runbook.md](file:///c:/Git/aws-landing-zone/identity/break-glass-runbook.md): 緊急アクセス（Break-Glass）運用・監査ランブック
 *   `terraform/` - Terraform によるインフラ定義およびアカウント管理基盤
+    *   [aft.tf](file:///c:/Git/aws-landing-zone/terraform/aft.tf): AWS Control Tower AFT モジュールをデプロイするための HCL 定義コード。
     *   [accounts.yaml](file:///c:/Git/aws-landing-zone/terraform/accounts.yaml): 組織内の全アカウント構造を GitOps 管理するための定義ファイル。
     *   [providers.tf](file:///c:/Git/aws-landing-zone/terraform/providers.tf): 複数アカウント間でのロール引き受け（Assume Role）によるプロバイダー定義、およびリモートバックエンド設定。
     *   [main.tf](file:///c:/Git/aws-landing-zone/terraform/main.tf): 各モジュールの呼び出しとパラメータ結合。
@@ -65,6 +69,8 @@ graph TD
 *   `docs/` - 運用管理ドキュメント
     *   [gitops-terraform-runbook.md](file:///c:/Git/aws-landing-zone/docs/gitops-terraform-runbook.md): accounts.yaml を用いた新規アカウント追加・削除の GitOps 運用マニュアル。
     *   [network-tgw-peering-runbook.md](file:///c:/Git/aws-landing-zone/docs/network-tgw-peering-runbook.md): 個別ワークロード（EKS/ECS）から TGW Peering 接続および IPAM 動的アロケーションを行い、集約アウトバウンド（Common Egress）にルーティングするための接続仕様書。
+*   `scratch/aft-bootstrap/` - AFT 監視用の4リポジトリ用のボイラープレート初期構成ファイル群
+*   [bootstrap_aft_repos.ps1](file:///c:/Git/aws-landing-zone/bootstrap_aft_repos.ps1) - GitHub CLI を用いて AFT 用 4 リポジトリを GitHub 上へ自動作成し、上記テンプレートを初期コミット・プッシュするための一括自動構築スクリプト
 
 ---
 
@@ -160,5 +166,20 @@ $env:AWS_PROFILE="my-management-profile"
 terraform apply
 ```
 
-### 5. 個別ワークロード側へのパラメータ同期 (shared-outputs.md)
-デプロイ完了後、作成された OIDC 信頼ロールの ARN や アカウントID 等の出力値を、個別ワークロードリポジトリ (`learning-ts-concepts`) の [docs/governance/shared-outputs.md](file:///c:/Git/learning-ts-concepts/docs/governance/shared-outputs.md) に書き込み、コミットしてプッシュしてください。これにより、ワークロード側の CI/CD が自動デプロイ可能になります。
+### 5. AFT (Account Factory for Terraform) のブートストラップ実行
+AFT による GitOps アカウント自動構築とカスタマイズパイプラインを動かすため、監視対象の 4 つのリポジトリを自動作成して初期プッシュします。
+
+1.  GitHub CLI がインストールされ、`gh auth login` で認証済みであることを確認します。
+2.  以下の PowerShell スクリプトを実行します。自動的に GitHub 上に 4 つの Public リポジトリが新規作成され、`scratch/aft-bootstrap` 内のボイラープレートテンプレートが自動初期プッシュされます。
+    ```powershell
+    powershell -ExecutionPolicy Bypass -File .\bootstrap_aft_repos.ps1
+    ```
+3.  作成された 4 つのリポジトリ：
+    - `aws-landing-zone-aft-account-requests` (アカウント申請管理)
+    - `aws-landing-zone-aft-global-customizations` (共通セキュリティ・ベースライン管理)
+    - `aws-landing-zone-aft-account-customizations` (アカウント別個別 IaC カスタマイズ)
+    - `aws-landing-zone-aft-account-provisioning-customizations` (追加 API / ライフサイクル連携)
+4.  これにより、`aws-landing-zone-aft-account-requests/sources/account-requests/templates/dev-eks.yaml` にアカウント申請用のサンプル（FISC準拠、小文字パラメータ仕様）が配置され、VCS 連携が即座に動作可能な状態になります。
+
+### 6. 個別ワークロード側へのパラメータ同期 (shared-outputs.md)
+デプロイ完了後、作成された OIDC 信頼ロール of ARN や アカウントID 等の出力値を、個別ワークロードリポジトリ (`learning-ts-concepts`) の [docs/governance/shared-outputs.md](file:///c:/Git/learning-ts-concepts/docs/governance/shared-outputs.md) に書き込み、コミットしてプッシュしてください。これにより、ワークロード側の CI/CD が自動デプロイ可能になります。
