@@ -8,22 +8,10 @@
 
 新しい AWS アカウントの追加は、[accounts.yaml](file:///c:/Git/aws-landing-zone/terraform/accounts.yaml) を用いて GitOps で管理します。
 
-```
-                    ┌──────────────────────────────┐
-                    │  accounts.yaml にアカウント追加  │
-                    └──────────────┬───────────────┘
-                                   │ (PR マージ)
-                                   ▼
-                    ┌──────────────────────────────┐
-                    │      terraform apply         │
-                    └──────────────┬───────────────┘
-                                   │ (Service Catalog Product 起動)
-                                   ▼
-                    ┌──────────────────────────────┐
-                    │ AWS Control Tower            │
-                    │   - アカウントの新規作成       │
-                    │   - ガードレール・ログ集約の適用 │
-                    └──────────────────────────────┘
+```mermaid
+flowchart TD
+    AddYaml["accounts.yaml にアカウント追加"] -->|PR マージ| Apply["terraform apply"]
+    Apply -->|Service Catalog Product 起動| ControlTower["AWS Control Tower<br>- アカウントの新規作成<br>- ガードレール・ログ集約の適用"]
 ```
 
 ### 1. アカウントの新規追加手順
