@@ -52,6 +52,9 @@ graph TD
    - **Cost Anomaly Detection (コスト異常検出)**: 機械学習ベースの異常検出により、予期せぬ AWS コストの急増を早期にキャッチし、FinOps ガバナンスを自動強化。
    - **Chaos Engineering (カオスエンジニアリング基盤)**: AWS FIS (Fault Injection Service) の障害注入テンプレートを配備。踏み台ホストなどのインスタンス停止実験をコード化し、SLO で定めた検知遅延や可用性の信頼性を検証。
    - **ChatOps (AWS Chatbot ＆ Slack 連携)**: 上記のコスト異常、セキュリティイベント（GuardDuty/SecurityHub）、および Config ドリフトなどのアラートを一元集約し、Slack チャンネルへ即座にカード形式で自動通知するパイプラインを統合。
+8. **Trivy セキュリティスキャンの CI 統合 ＆ AWS Backup 本番ガードレール (DevSecOps)**:
+   - **シフトレフトセキュリティ (Trivy)**: PR作成やマージ時に Trivy による IaC の静的セキュリティスキャンを CI ジョブ内で自動実行。設定不備（暗号化漏れや広すぎる権限等）があればビルドを強制終了（exit-code: 1）し、本番移行を水際でブロック。
+   - **本番リソースの自動バックアップ (AWS Backup)**: 本番環境（`prod` / `prod_eks`）において `Backup = "true"` タグが付与された重要データを日次で自動バックアップ・暗号化保護する共通ガードレールをモジュール適用。
 
 ---
 
@@ -71,7 +74,7 @@ graph TD
     *   [main.tf](file:///c:/Git/aws-landing-zone/terraform/main.tf): 各モジュールの呼び出しとパラメータ結合。
     *   [sre_features.tf](file:///c:/Git/aws-landing-zone/terraform/sre_features.tf): コスト異常検出、SNS トピック、AWS Chatbot (Slack 連携) などの共通 SRE 機能を定義した HCL コード。
     *   [imports.tf](file:///c:/Git/aws-landing-zone/terraform/imports.tf): 既存の CDK でプロビジョニングされたリソースを再作成せずにインポートするための `import` ブロック群。
-    *   `modules/`: 各スタックを移行したモジュール群（`organizations`, `log_archive`, `security_audit`, `identity`, `shared_services`, `account_factory`）。
+    *   `modules/`: 各スタックを移行したモジュール群（`organizations`, `log_archive`, `security_audit`, `identity`, `shared_services`, `account_factory`, `backup`）。
 *   `docs/` - 運用管理ドキュメント
     *   [gitops-terraform-runbook.md](file:///c:/Git/aws-landing-zone/docs/gitops-terraform-runbook.md): accounts.yaml を用いた新規アカウント追加・削除の GitOps 運用マニュアル。
     *   [network-tgw-peering-runbook.md](file:///c:/Git/aws-landing-zone/docs/network-tgw-peering-runbook.md): 個別ワークロード（EKS/ECS）から TGW Peering 接続および IPAM 動的アロケーションを行い、集約アウトバウンド（Common Egress）にルーティングするための接続仕様書。
