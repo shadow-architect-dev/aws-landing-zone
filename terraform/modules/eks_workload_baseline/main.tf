@@ -7,6 +7,16 @@ variable "github_eks_repo" {
   description = "GitHub repository for EKS project OIDC trust role"
 }
 
+variable "environment" {
+  type        = string
+  description = "Target environment name (dev, stg, prod)"
+}
+
+locals {
+  # Guardrail 2: Restrict production deployment to main branch only
+  github_sub_condition = var.environment == "prod" ? "repo:${var.github_eks_repo}:ref:refs/heads/main" : "repo:${var.github_eks_repo}:*"
+}
+
 # 1. GitHub Actions 用の OIDC プロバイダー
 resource "aws_iam_openid_connect_provider" "github" {
   url             = "https://token.actions.githubusercontent.com"
@@ -34,7 +44,7 @@ resource "aws_iam_role" "github_deploy" {
             "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
           }
           StringLike = {
-            "token.actions.githubusercontent.com:sub" = "repo:${var.github_eks_repo}:*"
+            "token.actions.githubusercontent.com:sub" = local.github_sub_condition
           }
         }
       }

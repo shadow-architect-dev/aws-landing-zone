@@ -143,3 +143,21 @@ resource "aws_securityhub_configuration_policy_association" "prod_eks" {
   target_id = var.accounts.prod_eks
   policy_id = aws_securityhub_configuration_policy.prod.id
 }
+
+# ------------------------------------------------------------------------------
+# 4. Organization Config Guardrails (Platform Level Security Governance)
+# ------------------------------------------------------------------------------
+
+# Guardrail 1: Check if ECS task definitions enforce non-root user execution
+resource "aws_config_organization_managed_rule" "ecs_nonroot" {
+  name            = "OrgEcsTaskNonRootUserCheck"
+  rule_identifier = "ECS_TASK_DEFINITION_NONROOT_USER"
+  description     = "Ensure ECS tasks are configured to run as a non-root user"
+}
+
+# Guardrail 3: Check if Security Groups restrict outbound (Egress) ports to prevent unrestricted outbound traffic
+resource "aws_config_organization_managed_rule" "sg_egress_check" {
+  name            = "OrgSecurityGroupEgressPortCheck"
+  rule_identifier = "SECURITY_GROUP_EGRESS_PORT_LIMIT"
+  description     = "Ensure security groups do not allow unrestricted outbound traffic"
+}

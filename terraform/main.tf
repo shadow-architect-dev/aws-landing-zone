@@ -88,6 +88,7 @@ module "eks_workload_baseline_dev" {
   }
 
   github_eks_repo = var.github_eks_repo
+  environment     = "dev"
 }
 
 # 7-2. EKS Stg アカウント
@@ -98,6 +99,7 @@ module "eks_workload_baseline_stg" {
   }
 
   github_eks_repo = var.github_eks_repo
+  environment     = "stg"
 }
 
 # 7-3. EKS Prod アカウント
@@ -108,6 +110,7 @@ module "eks_workload_baseline_prod" {
   }
 
   github_eks_repo = var.github_eks_repo
+  environment     = "prod"
 }
 
 # ==============================================================================
