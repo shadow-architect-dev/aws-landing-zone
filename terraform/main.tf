@@ -204,3 +204,22 @@ module "backup_prod_eks" {
     aws = aws.prod_eks
   }
 }
+
+# ==============================================================================
+# 8. コスト削減用リソーススケジューラー (非本番アカウント用)
+# ==============================================================================
+module "scheduler_dev" {
+  source      = "./modules/resource_scheduler"
+  environment = "dev"
+  providers = {
+    aws = aws.dev
+  }
+}
+
+module "scheduler_stg" {
+  source      = "./modules/resource_scheduler"
+  environment = "stg"
+  providers = {
+    aws = aws.stg
+  }
+}
