@@ -185,3 +185,22 @@ module "datadog_integration_prod_eks" {
     aws = aws.prod_eks
   }
 }
+
+# ==============================================================================
+# 7. AWS Backup ガードレール (本番アカウント用)
+# ==============================================================================
+module "backup_prod" {
+  source      = "./modules/backup"
+  environment = "prod"
+  providers = {
+    aws = aws.prod
+  }
+}
+
+module "backup_prod_eks" {
+  source      = "./modules/backup"
+  environment = "prod-eks"
+  providers = {
+    aws = aws.prod_eks
+  }
+}

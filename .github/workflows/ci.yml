@@ -42,3 +42,14 @@ jobs:
     - name: Terraform Validate (Main)
       run: terraform validate
       working-directory: ./terraform
+
+    # 4. Trivy による IaC セキュリティ静的解析 (シフトレフト)
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'config'
+        scan-ref: './terraform'
+        hide-progress: true
+        format: 'table'
+        exit-code: '1'
+        severity: 'HIGH,CRITICAL'
