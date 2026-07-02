@@ -6,7 +6,8 @@
 # 1. Unified SRE Alerts SNS Topic
 # ------------------------------------------------------------------------------
 resource "aws_sns_topic" "sre_alerts" {
-  name = "sre-alerts-topic"
+  name              = "sre-alerts-topic"
+  kms_master_key_id = "alias/aws/sns"
 }
 
 resource "aws_sns_topic_policy" "default" {

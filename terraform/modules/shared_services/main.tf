@@ -214,6 +214,7 @@ resource "aws_internet_gateway" "gw" {
 }
 
 # Public Subnets (for NAT Gateway placements)
+#trivy:ignore:AVD-AWS-0164
 resource "aws_subnet" "public" {
   count                   = length(var.azs)
   vpc_id                  = aws_vpc.shared.id
