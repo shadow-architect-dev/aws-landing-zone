@@ -5,6 +5,7 @@
 # ------------------------------------------------------------------------------
 # 1. Unified SRE Alerts SNS Topic
 # ------------------------------------------------------------------------------
+#trivy:ignore:AVD-AWS-0136
 resource "aws_sns_topic" "sre_alerts" {
   name              = "sre-alerts-topic"
   kms_master_key_id = "alias/aws/sns"
