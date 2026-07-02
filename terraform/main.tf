@@ -40,7 +40,8 @@ module "security_audit" {
   providers = {
     aws = aws.audit
   }
-  accounts = var.accounts
+  accounts      = var.accounts
+  sns_topic_arn = aws_sns_topic.sre_alerts.arn
 }
 
 # 4. Identity モジュール (管理アカウントにデプロイ)

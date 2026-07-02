@@ -95,3 +95,21 @@ variable "github_owner" {
   description = "GitHub Org or Username for AFT GitOps repositories"
   default     = "shadow-architect-dev"
 }
+
+variable "slack_team_id" {
+  type        = string
+  description = "Slack Team ID for AWS Chatbot integration"
+  default     = "T0000000000" # Placeholder workspace ID
+}
+
+variable "slack_channel_id" {
+  type        = string
+  description = "Slack Channel ID for sending alerts"
+  default     = "C0000000000" # Placeholder channel ID
+}
+
+variable "cost_anomaly_threshold" {
+  type        = number
+  description = "Cost anomaly daily surge threshold in USD"
+  default     = 100
+}

@@ -14,3 +14,8 @@ variable "accounts" {
   })
   description = "AWS Account IDs"
 }
+
+variable "sns_topic_arn" {
+  type        = string
+  description = "SNS Topic ARN for sending security alerts"
+}

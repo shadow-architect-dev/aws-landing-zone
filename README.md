@@ -64,6 +64,7 @@ graph TD
     *   [accounts.yaml](file:///c:/Git/aws-landing-zone/terraform/accounts.yaml): 組織内の全アカウント構造を GitOps 管理するための定義ファイル。
     *   [providers.tf](file:///c:/Git/aws-landing-zone/terraform/providers.tf): 複数アカウント間でのロール引き受け（Assume Role）によるプロバイダー定義、およびリモートバックエンド設定。
     *   [main.tf](file:///c:/Git/aws-landing-zone/terraform/main.tf): 各モジュールの呼び出しとパラメータ結合。
+    *   [sre_features.tf](file:///c:/Git/aws-landing-zone/terraform/sre_features.tf): コスト異常検出、SNS トピック、AWS Chatbot (Slack 連携) などの共通 SRE 機能を定義した HCL コード。
     *   [imports.tf](file:///c:/Git/aws-landing-zone/terraform/imports.tf): 既存の CDK でプロビジョニングされたリソースを再作成せずにインポートするための `import` ブロック群。
     *   `modules/`: 各スタックを移行したモジュール群（`organizations`, `log_archive`, `security_audit`, `identity`, `shared_services`, `account_factory`）。
 *   `docs/` - 運用管理ドキュメント
