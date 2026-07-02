@@ -45,6 +45,12 @@ resource "aws_organizations_organizational_unit" "workloads" {
   parent_id = var.root_id
 }
 
+# Suspended OU (For quarantine and cooling-off of deleted accounts)
+resource "aws_organizations_organizational_unit" "suspended" {
+  name      = "Suspended"
+  parent_id = var.root_id
+}
+
 # Nested OUs under Workloads for EKS projects
 resource "aws_organizations_organizational_unit" "workloads_dev" {
   name      = "Development"
@@ -181,6 +187,19 @@ resource "aws_organizations_policy_attachment" "prevent_prod_deletion_prod" {
 resource "aws_organizations_policy_attachment" "prevent_prod_deletion_prod_eks" {
   policy_id = aws_organizations_policy.prevent_prod_deletion.id
   target_id = var.prod_eks_account_id
+}
+
+# 隔離用 SCP (DenyAll)
+resource "aws_organizations_policy" "deny_all" {
+  name        = "DenyAllQuarantine"
+  description = "Quarantine policy to block all operations on suspended accounts."
+  type        = "SERVICE_CONTROL_POLICY"
+  content     = file("${path.module}/../../../policies/scp/deny-all.json")
+}
+
+resource "aws_organizations_policy_attachment" "deny_all_suspended" {
+  policy_id = aws_organizations_policy.deny_all.id
+  target_id = aws_organizations_organizational_unit.suspended.id
 }
 
 # ------------------------------------------------------------------------------
