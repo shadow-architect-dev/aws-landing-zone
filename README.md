@@ -15,6 +15,7 @@ graph TD
     Root[AWS Organizations Root]
     Root --> CoreOU[Core / Security OU]
     Root --> WorkloadsOU[Workloads OU]
+    Root --> SuspendedOU[Suspended OU]
     
     CoreOU --> Management[Management Account]
     CoreOU --> LogArchive[Log Archive Account]
