@@ -55,6 +55,8 @@ graph TD
 8. **Trivy セキュリティスキャンの CI 統合 ＆ AWS Backup 本番ガードレール (DevSecOps)**:
    - **シフトレフトセキュリティ (Trivy)**: PR作成やマージ時に Trivy による IaC の静的セキュリティスキャンを CI ジョブ内で自動実行。設定不備（暗号化漏れや広すぎる権限等）があればビルドを強制終了（exit-code: 1）し、本番移行を水際でブロック。
    - **本番リソースの自動バックアップ (AWS Backup)**: 本番環境（`prod` / `prod_eks`）において `Backup = "true"` タグが付与された重要データを日次で自動バックアップ・暗号化保護する共通ガードレールをモジュール適用。
+9. **コスト削減用リソーススケジューラー (Tag-based Auto-Scheduler)**:
+   - **夜間リソースの自動停止・朝自動起動**: 非本番環境（`dev` / `stg`）において、開発者がリソースに `Schedule = "office-hours"` タグを付与するだけで、毎日 20:00 JST (11:00 UTC) に自動的に停止し、翌朝 08:00 JST (23:00 UTC) に自動起動する Lambda + EventBridge の共通コスト削減システムを配備（FinOps の自律化）。
 
 ---
 
@@ -74,7 +76,7 @@ graph TD
     *   [main.tf](file:///c:/Git/aws-landing-zone/terraform/main.tf): 各モジュールの呼び出しとパラメータ結合。
     *   [sre_features.tf](file:///c:/Git/aws-landing-zone/terraform/sre_features.tf): コスト異常検出、SNS トピック、AWS Chatbot (Slack 連携) などの共通 SRE 機能を定義した HCL コード。
     *   [imports.tf](file:///c:/Git/aws-landing-zone/terraform/imports.tf): 既存の CDK でプロビジョニングされたリソースを再作成せずにインポートするための `import` ブロック群。
-    *   `modules/`: 各スタックを移行したモジュール群（`organizations`, `log_archive`, `security_audit`, `identity`, `shared_services`, `account_factory`, `backup`）。
+    *   `modules/`: 各スタックを移行したモジュール群（`organizations`, `log_archive`, `security_audit`, `identity`, `shared_services`, `account_factory`, `backup`, `resource_scheduler`）。
 *   `docs/` - 運用管理ドキュメント
     *   [gitops-terraform-runbook.md](file:///c:/Git/aws-landing-zone/docs/gitops-terraform-runbook.md): accounts.yaml を用いた新規アカウント追加・削除の GitOps 運用マニュアル。
     *   [network-tgw-peering-runbook.md](file:///c:/Git/aws-landing-zone/docs/network-tgw-peering-runbook.md): 個別ワークロード（EKS/ECS）から TGW Peering 接続および IPAM 動的アロケーションを行い、集約アウトバウンド（Common Egress）にルーティングするための接続仕様書。
